@@ -24,7 +24,7 @@ public sealed class TemperatureHelpers
 
             for (int x = 0; x < width; x++)
             {
-                Cell cell = world[y, x];
+                ref var cell = ref world[y, x];
                 int worldX = TerrainCoordinates.WorldX(context, x);
 
                 double fractal = noise.SampleFractal(

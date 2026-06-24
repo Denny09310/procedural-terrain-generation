@@ -9,4 +9,5 @@ public sealed class Cell
     public double River { get; set; }
 
     public Biome Biome { get; set; }
+    public StructureType Structure { get; set; }
 }

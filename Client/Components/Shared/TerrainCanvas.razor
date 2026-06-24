@@ -41,15 +41,18 @@
     }
 
     /// <summary>
-    /// Triggered by JavaScript. Computes data on a background worker,
-    /// pushes it back to JS, and recycles the array without allocations.
+    /// Triggered by JavaScript. Computes map data on a background worker,
+    /// pushes both biomes and structures to JS, and recycles arrays without allocations.
     /// </summary>
     [JSInvokable]
     public async Task StartRendering(int chunkX, int chunkY)
     {
         if (World == null || _module == null) return;
 
-        var buffer = ArrayPool<byte>.Shared.Rent(ChunkSize * ChunkSize);
+        int totalCells = ChunkSize * ChunkSize;
+
+        var biomes = ArrayPool<byte>.Shared.Rent(totalCells);
+        var structures = ArrayPool<byte>.Shared.Rent(totalCells);
 
         try
         {
@@ -66,16 +69,26 @@
                 {
                     for (int x = 0; x < width; x++)
                     {
-                        buffer[index++] = (byte)chunk.Cells[y, x].Biome;
+                        ref var cell = ref chunk.Cells[y, x];
+
+                        biomes[index] = (byte)cell.Biome;
+                        structures[index] = (byte)cell.Structure;
+                        index++;
                     }
                 }
             });
 
-            await _module.InvokeVoidAsync("endRendering", chunkX, chunkY, buffer);
+            await _module.InvokeVoidAsync(
+                "endRendering",
+                chunkX,
+                chunkY,
+                biomes,
+                structures);
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(buffer);
+            ArrayPool<byte>.Shared.Return(biomes);
+            ArrayPool<byte>.Shared.Return(structures);
         }
     }
 

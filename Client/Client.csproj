@@ -8,7 +8,7 @@
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
   
     <WasmEnableThreads>true</WasmEnableThreads>
-    <WasmWorkerPoolSize>16</WasmWorkerPoolSize>
+    <WasmWorkerPoolSize>4</WasmWorkerPoolSize>
   </PropertyGroup>
 
   <ItemGroup>

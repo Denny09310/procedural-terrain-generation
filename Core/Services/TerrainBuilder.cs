@@ -11,7 +11,7 @@ public sealed class TerrainBuilder(int size, int seed)
     private readonly List<TerrainTransformer> _transformers = [];
 
     private TerrainSettings _settings = new(
-        Size: size,
+        ChunkSize: size,
         Octaves: 4,
         Persistence: 0.5,
         Shape: TerrainShape.Archipelago,

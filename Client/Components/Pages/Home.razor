@@ -5,6 +5,7 @@
 @using static Core.Helpers.TemperatureHelpers
 @using static Core.Helpers.RiversHelpers
 @using static Core.Helpers.TerrainHelpers
+@using static Core.Helpers.SettlementHelpers
 
 @using Client.Components.Shared
 @using Core.Models
@@ -19,7 +20,7 @@
         <BbInputGroupInput Placeholder="Insert a custom seed" ValueChanged="OnSeedChanged" />
     </BbInputGroup>
 
-    <TerrainCanvas World="_world" ChunkSize="128" />
+    <TerrainCanvas World="_world" ChunkSize="256" />
 }
 else
 {
@@ -47,7 +48,7 @@ else
 
     private void GenerateWorld(int seed = 0)
     {
-        _world = new TerrainBuilder(128, seed)
+        _world = new TerrainBuilder(256, seed)
             .WithSettings(settings => settings with { Shape = TerrainShape.Continent })
             .WithTransformer(AddElevation)
             .WithTransformer(AddMoisture)
@@ -55,6 +56,7 @@ else
             .WithTransformer(GenerateRivers)
             .WithTransformer(RecalculateMoisture)
             .WithTransformer(ClassifyTerrain)
+            .WithTransformer(AddSettlements)
             .Build();
     }
 }

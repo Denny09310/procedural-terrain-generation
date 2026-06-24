@@ -29,7 +29,7 @@ public sealed class TerrainWorld(
         int chunkX,
         int chunkY)
     {
-        int size = settings.Size;
+        int size = settings.ChunkSize;
 
         var cells = new Cell[size, size];
 

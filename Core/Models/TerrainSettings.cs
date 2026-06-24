@@ -1,7 +1,7 @@
 namespace Core.Models;
 
 public sealed record TerrainSettings(
-    int Size,
+    int ChunkSize,
     int Octaves,
     double Persistence,
     TerrainShape Shape,

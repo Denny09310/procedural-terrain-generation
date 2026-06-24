@@ -6,7 +6,7 @@ public static class TerrainCoordinates
     {
         return
             context.ChunkX *
-            context.Settings.Size +
+            context.Settings.ChunkSize +
             localX;
     }
 
@@ -14,7 +14,7 @@ public static class TerrainCoordinates
     {
         return
             context.ChunkY *
-            context.Settings.Size +
+            context.Settings.ChunkSize +
             localY;
     }
 }

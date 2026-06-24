@@ -25,7 +25,7 @@ export function init(canvasElement, componentRef, size) {
     canvas.addEventListener("pointercancel", onPointerUp);
     canvas.addEventListener("wheel", onWheel, { passive: false });
 
-    // Kick off the 60 FPS rendering cycle
+    // Kick off the 60 FPS  ing cycle
     requestAnimationFrame(renderLoop);
 }
 
@@ -122,9 +122,9 @@ function startRendering(cx, cy) {
         .catch(err => console.error(`Error initiating chunk fetch [${cx}, ${cy}]:`, err));
 }
 
-export function endRendering(cx, cy, biomes) {
+export function endRendering(cx, cy, biomes, structures) {
     if (biomes) {
-        createChunkBitmap(biomes).then(bitmap => {
+        createChunkBitmap(biomes, structures).then(bitmap => {
             chunkCache.set(`${cx},${cy}`, bitmap);
         }).catch(err => {
             console.error(`Error processing bitmap for [${cx}, ${cy}]:`, err);
@@ -132,16 +132,24 @@ export function endRendering(cx, cy, biomes) {
     }
 }
 
-async function createChunkBitmap(biomes) {
-    const buffer = new Uint8ClampedArray(chunkSize * chunkSize * 4);
-    for (let i = 0; i < biomes.length; i++) {
-        const color = getBiomeColor(biomes[i]);
+async function createChunkBitmap(biomes, structures) {
+    const totalCells = chunkSize * chunkSize;
+    const buffer = new Uint8ClampedArray(totalCells * 4);
+
+    for (let i = 0; i < totalCells; i++) {
+        let color = getBiomeColor(biomes[i]);
+
+        if (structures && structures[i] > 0) {
+            color = getStructureColor(structures[i]);
+        }
+
         const offset = i * 4;
         buffer[offset] = color.r;
         buffer[offset + 1] = color.g;
         buffer[offset + 2] = color.b;
         buffer[offset + 3] = 255;
     }
+
     const imageData = new ImageData(buffer, chunkSize, chunkSize);
     return await createImageBitmap(imageData);
 }
@@ -171,5 +179,14 @@ function getBiomeColor(biome) {
         case 7: return { r: 90, g: 90, b: 90 };    // Mountains (Dark Rock Gray)
         case 8: return { r: 255, g: 255, b: 255 }; // Snow (Pure White)
         default: return { r: 255, g: 0, b: 255 };  // Error Fallback (Magenta)
+    }
+}
+
+function getStructureColor(structure) {
+    switch (structure) {
+        case 1: return { r: 220, g: 20, b: 60 };   // CityCenter (Crimson Red Hub)
+        case 2: return { r: 139, g: 69, b: 19 };   // House (Saddle Brown Roof)
+        case 3: return { r: 105, g: 105, b: 105 };  // Road (Dim Gray Gravel)
+        default: return { r: 255, g: 255, b: 0 };   // Unknown/Fallback (Yellow)
     }
 }
