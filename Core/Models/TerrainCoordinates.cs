@@ -2,9 +2,7 @@ namespace Core.Models;
 
 public static class TerrainCoordinates
 {
-    public static int WorldX(
-        TerrainContext context,
-        int localX)
+    public static int WorldX(TerrainContext context, int localX)
     {
         return
             context.ChunkX *
@@ -12,9 +10,7 @@ public static class TerrainCoordinates
             localX;
     }
 
-    public static int WorldY(
-        TerrainContext context,
-        int localY)
+    public static int WorldY(TerrainContext context, int localY)
     {
         return
             context.ChunkY *

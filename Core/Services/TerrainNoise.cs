@@ -2,7 +2,7 @@ namespace Core.Services;
 
 public sealed class TerrainNoise(int blockSize, long seed)
 {
-    public double Core(double x, double y)
+    public double Sample(double x, double y)
     {
         double gx = x / blockSize;
         double gy = y / blockSize;
@@ -27,7 +27,7 @@ public sealed class TerrainNoise(int blockSize, long seed)
         return Lerp(top, bottom, ty);
     }
 
-    public double CoreFractal(
+    public double SampleFractal(
         double x,
         double y,
         int octaves,
@@ -42,7 +42,7 @@ public sealed class TerrainNoise(int blockSize, long seed)
         for (int i = 0; i < octaves; i++)
         {
             total +=
-                Core(
+                Sample(
                     x * frequency,
                     y * frequency)
                 * amplitude;

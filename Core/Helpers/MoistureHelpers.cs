@@ -34,7 +34,7 @@ public static class MoistureHelpers
 
                 int worldX = TerrainCoordinates.WorldX(context, x);
 
-                double moisture = noise.CoreFractal(
+                double moisture = noise.SampleFractal(
                     worldX, worldY,
                     octaves: octaves,
                     persistence: persistence);

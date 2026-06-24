@@ -161,14 +161,15 @@ export function dispose() {
 
 function getBiomeColor(biome) {
     switch (biome) {
-        case 0: return { r: 0, g: 105, b: 148 };
-        case 1: return { r: 238, g: 214, b: 175 };
-        case 2: return { r: 210, g: 180, b: 140 };
-        case 3: return { r: 50, g: 205, b: 50 };
-        case 4: return { r: 34, g: 139, b: 34 };
-        case 5: return { r: 120, g: 120, b: 120 };
-        case 6: return { r: 90, g: 90, b: 90 };
-        case 7: return { r: 255, g: 255, b: 255 };
-        default: return { r: 255, g: 0, b: 255 };
+        case 0: return { r: 0, g: 105, b: 148 };   // Water (Deep Blue)
+        case 1: return { r: 30, g: 144, b: 255 };  // River (Dodger Blue)
+        case 2: return { r: 238, g: 214, b: 175 }; // Beach (Sand)
+        case 3: return { r: 210, g: 180, b: 140 }; // Desert (Tan/Desert Sand)
+        case 4: return { r: 50, g: 205, b: 50 };   // Plains (Lime Green)
+        case 5: return { r: 34, g: 139, b: 34 };   // Forest (Forest Green)
+        case 6: return { r: 120, g: 120, b: 120 }; // Hills (Light Gray)
+        case 7: return { r: 90, g: 90, b: 90 };    // Mountains (Dark Rock Gray)
+        case 8: return { r: 255, g: 255, b: 255 }; // Snow (Pure White)
+        default: return { r: 255, g: 0, b: 255 };  // Error Fallback (Magenta)
     }
 }

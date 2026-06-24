@@ -19,7 +19,7 @@
         <BbInputGroupInput Placeholder="Insert a custom seed" ValueChanged="OnSeedChanged" />
     </BbInputGroup>
 
-    <TerrainCanvas World="_world" ChunkSize="256" />
+    <TerrainCanvas World="_world" ChunkSize="128" />
 }
 else
 {
@@ -47,8 +47,8 @@ else
 
     private void GenerateWorld(int seed = 0)
     {
-        _world = new TerrainBuilder(256, seed)
-            .WithSettings(settings => settings with { Shape = TerrainShape.Archipelago })
+        _world = new TerrainBuilder(128, seed)
+            .WithSettings(settings => settings with { Shape = TerrainShape.Continent })
             .WithTransformer(AddElevation)
             .WithTransformer(AddMoisture)
             .WithTransformer(AddTemperature)

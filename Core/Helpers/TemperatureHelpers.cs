@@ -27,7 +27,7 @@ public sealed class TemperatureHelpers
                 Cell cell = world[y, x];
                 int worldX = TerrainCoordinates.WorldX(context, x);
 
-                double fractal = noise.CoreFractal(
+                double fractal = noise.SampleFractal(
                     worldX,
                     worldY,
                     octaves,

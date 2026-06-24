@@ -13,7 +13,7 @@ public static class TerrainHelpers
         {
             for (int x = 0; x < width; x++)
             {
-                var cell = world[y, x];
+                ref var cell = ref world[y, x];
 
                 if (cell.River > 0)
                 {
