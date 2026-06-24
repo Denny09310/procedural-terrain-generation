@@ -7,15 +7,21 @@ public static class MoistureHelpers
 {
     public static void AddMoisture(Cell[,] world, TerrainContext context)
     {
+        var settings = context.Settings.Moisture;
+        var octaves = context.Settings.Octaves;
+        var persistence = context.Settings.Persistence;
+
         var noise = new TerrainNoise(
-            blockSize: context.Settings.Moisture.BlockSize,
-            seed: context.Settings.Moisture.NoiseSeed);
+            blockSize: settings.BlockSize,
+            seed: settings.NoiseSeed);
 
         int height = world.GetLength(0);
         int width = world.GetLength(1);
 
         Parallel.For(0, height, y =>
         {
+            int worldY = TerrainCoordinates.WorldY(context, y);
+
             for (int x = 0; x < width; x++)
             {
                 var cell = world[y, x];
@@ -26,18 +32,12 @@ public static class MoistureHelpers
                     continue;
                 }
 
-                int worldX = TerrainCoordinates.WorldX(
-                    context,
-                    x);
-
-                int worldY = TerrainCoordinates.WorldY(
-                    context,
-                    y);
+                int worldX = TerrainCoordinates.WorldX(context, x);
 
                 double moisture = noise.CoreFractal(
                     worldX, worldY,
-                    octaves: context.Settings.Octaves,
-                    persistence: context.Settings.Persistence);
+                    octaves: octaves,
+                    persistence: persistence);
 
                 cell.Moisture = Math.Clamp(moisture - cell.Elevation * 0.3, 0.0, 1.0);
             }
@@ -49,32 +49,33 @@ public static class MoistureHelpers
         int height = world.GetLength(0);
         int width = world.GetLength(1);
 
+        var rivers = new List<(int X, int Y)>(64);
+
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                if (world[y, x].River <= 0)
+                if (world[y, x].River > 0)
                 {
-                    continue;
+                    rivers.Add((x, y));
                 }
+            }
+        }
 
-                for (int dy = -2; dy <= 2; dy++)
+        foreach (var (rx, ry) in rivers)
+        {
+            int minDy = Math.Max(-2, -ry);
+            int maxDy = Math.Min(2, height - 1 - ry);
+            int minDx = Math.Max(-2, -rx);
+            int maxDx = Math.Min(2, width - 1 - rx);
+
+            for (int dy = minDy; dy <= maxDy; dy++)
+            {
+                int ny = ry + dy;
+                for (int dx = minDx; dx <= maxDx; dx++)
                 {
-                    for (int dx = -2; dx <= 2; dx++)
-                    {
-                        int nx = x + dx;
-                        int ny = y + dy;
-
-                        if (nx < 0 || nx >= width ||
-                            ny < 0 || ny >= height)
-                        {
-                            continue;
-                        }
-
-                        var cell = world[ny, nx];
-
-                        cell.Moisture = Math.Clamp(cell.Moisture + 0.15, 0.0, 1.0);
-                    }
+                    var cell = world[ny, rx + dx];
+                    cell.Moisture = Math.Clamp(cell.Moisture + 0.15, 0.0, 1.0);
                 }
             }
         }

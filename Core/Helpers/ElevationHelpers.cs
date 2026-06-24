@@ -5,11 +5,12 @@ namespace Core.Helpers;
 
 public static class ElevationHelpers
 {
-    public static void AddElevation(
-    Cell[,] world,
-    TerrainContext context)
+    public static void AddElevation(Cell[,] world, TerrainContext context)
     {
         var settings = context.Settings.Elevation;
+        var shape = context.Settings.Shape;
+        var octaves = context.Settings.Octaves;
+        var persistence = context.Settings.Persistence;
 
         var noise = new TerrainNoise(
             blockSize: settings.BlockSize,
@@ -20,214 +21,109 @@ public static class ElevationHelpers
 
         double centerX = (width - 1) / 2.0;
         double centerY = (height - 1) / 2.0;
+        double maxDistance = Math.Sqrt(centerX * centerX + centerY * centerY);
 
-        double maxDistance =
-            Math.Sqrt(
-                centerX * centerX +
-                centerY * centerY);
-
-        Parallel.For(0, height, y =>
+        switch (shape)
         {
-            for (int x = 0; x < width; x++)
-            {
-                world[y, x].Elevation =
-                    Math.Clamp(
-                        GetElevation(
-                            context.Settings.Shape,
-                            noise,
-                            context,
-                            width,
-                            height,
-                            x,
-                            y,
-                            centerX,
-                            centerY,
-                            maxDistance),
-                        0.0,
-                        1.0);
-            }
-        });
-    }
+            case TerrainShape.Continent:
+                Parallel.For(0, height, y =>
+                {
+                    int worldY = TerrainCoordinates.WorldY(context, y);
 
-    private static double GetElevation(
-        TerrainShape shape,
-        TerrainNoise noise,
-        TerrainContext context,
-        int width,
-        int height,
-        int x,
-        int y,
-        double centerX,
-        double centerY,
-        double maxDistance)
-    {
-        return shape switch
-        {
-            TerrainShape.Continent =>
-                GetContinentElevation(
-                    noise,
-                    context,
-                    width,
-                    x,
-                    y),
+                    for (int x = 0; x < width; x++)
+                    {
+                        int worldX = TerrainCoordinates.WorldX(context, x);
+                        double variation = noise.CoreFractal(worldX, worldY, octaves, persistence);
 
-            TerrainShape.Archipelago =>
-                GetArchipelagoElevation(
-                    noise,
-                    context,
-                    x,
-                    y),
+                        double continent = 1.0 - (double)x / width;
+                        double elevation = continent * 0.5 + variation * 0.5;
 
-            TerrainShape.InlandSea =>
-                GetInlandSeaElevation(
-                    noise,
-                    context,
-                    x,
-                    y,
-                    centerX,
-                    centerY,
-                    maxDistance),
+                        world[y, x].Elevation = Math.Clamp(elevation, 0.0, 1.0);
+                    }
+                });
+                break;
 
-            TerrainShape.Plains =>
-                GetPlainsElevation(
-                    noise,
-                    context,
-                    x,
-                    y),
+            case TerrainShape.Archipelago:
+                Parallel.For(0, height, y =>
+                {
+                    int worldY = TerrainCoordinates.WorldY(context, y);
 
-            TerrainShape.Mountains =>
-                GetMountainRangeElevation(
-                    noise,
-                    context,
-                    height,
-                    x,
-                    y),
+                    for (int x = 0; x < width; x++)
+                    {
+                        int worldX = TerrainCoordinates.WorldX(context, x);
+                        double variation = noise.CoreFractal(worldX, worldY, octaves, persistence);
 
-            _ => throw new NotImplementedException()
-        };
-    }
+                        double elevation = Math.Pow(variation, 3.0);
 
-    private static double GetContinentElevation(
-        TerrainNoise noise,
-        TerrainContext context,
-        int width,
-        int x,
-        int y)
-    {
-        double continent =
-            1.0 - (double)x / width;
+                        world[y, x].Elevation = Math.Clamp(elevation, 0.0, 1.0);
+                    }
+                });
+                break;
 
-        double variation =
-            GetVariation(noise, context, x, y);
+            case TerrainShape.InlandSea:
+                Parallel.For(0, height, y =>
+                {
+                    int worldY = TerrainCoordinates.WorldY(context, y);
 
-        return continent * 0.5 + variation * 0.5;
-    }
+                    double dy = y - centerY;
+                    double dySq = dy * dy;
 
-    private static double GetArchipelagoElevation(
-    TerrainNoise noise,
-    TerrainContext context,
-    int x,
-    int y)
-    {
-        double value =
-            GetVariation(
-                noise,
-                context,
-                x,
-                y);
+                    for (int x = 0; x < width; x++)
+                    {
+                        int worldX = TerrainCoordinates.WorldX(context, x);
+                        double variation = noise.CoreFractal(worldX, worldY, octaves, persistence);
 
-        return Math.Pow(value, 3.0);
-    }
+                        double dx = x - centerX;
+                        double distance = Math.Sqrt(dx * dx + dySq) / maxDistance;
 
-    private static double GetInlandSeaElevation(
-        TerrainNoise noise,
-        TerrainContext context,
-        int x,
-        int y,
-        double centerX,
-        double centerY,
-        double maxDistance)
-    {
-        double dx = x - centerX;
-        double dy = y - centerY;
+                        double basin = Math.Pow(distance, 3.0);
+                        double elevation = basin * 0.7 + variation * 0.3;
 
-        double distance =
-            Math.Sqrt(dx * dx + dy * dy)
-            / maxDistance;
+                        world[y, x].Elevation = Math.Clamp(elevation, 0.0, 1.0);
+                    }
+                });
+                break;
 
-        distance =
-            Math.Clamp(distance, 0.0, 1.0);
+            case TerrainShape.Plains:
+                Parallel.For(0, height, y =>
+                {
+                    int worldY = TerrainCoordinates.WorldY(context, y);
 
-        double basin =
-            Math.Pow(distance, 3.0);
+                    for (int x = 0; x < width; x++)
+                    {
+                        int worldX = TerrainCoordinates.WorldX(context, x);
+                        double variation = noise.CoreFractal(worldX, worldY, octaves, persistence);
 
-        double variation =
-            GetVariation(noise, context, x, y);
+                        double elevation = 0.35 + variation * 0.3;
 
-        return basin * 0.7 + variation * 0.3;
-    }
+                        world[y, x].Elevation = Math.Clamp(elevation, 0.0, 1.0);
+                    }
+                });
+                break;
 
-    private static double GetPlainsElevation(
-        TerrainNoise noise,
-        TerrainContext context,
-        int x,
-        int y)
-    {
-        double variation = GetVariation(
-            noise,
-            context,
-            x,
-            y);
+            case TerrainShape.Mountains:
+                double center = height / 2.0;
+                Parallel.For(0, height, y =>
+                {
+                    int worldY = TerrainCoordinates.WorldY(context, y);
 
-        return 0.35 + variation * 0.3;
-    }
+                    double distance = Math.Abs(y - center) / center;
+                    double ridge = 1.0 - distance;
 
-    private static double GetMountainRangeElevation(
-        TerrainNoise noise,
-        TerrainContext context,
-        int height,
-        int x,
-        int y)
-    {
-        double center = height / 2.0;
+                    for (int x = 0; x < width; x++)
+                    {
+                        int worldX = TerrainCoordinates.WorldX(context, x);
+                        double variation = noise.CoreFractal(worldX, worldY, octaves, persistence);
 
-        double distance = Math.Abs(y - center) / center;
+                        double elevation = ridge * 0.7 + variation * 0.3;
 
-        double ridge = 1.0 - distance;
+                        world[y, x].Elevation = Math.Clamp(elevation, 0.0, 1.0);
+                    }
+                });
+                break;
 
-        double variation = GetVariation(
-            noise,
-            context,
-            x,
-            y);
-
-        return ridge * 0.7 + variation * 0.3;
-    }
-
-    private static double GetVariation(
-        TerrainNoise noise,
-        TerrainContext context,
-        int x,
-        int y)
-    {
-        int worldX = TerrainCoordinates.WorldX(
-            context,
-            x);
-
-        int worldY = TerrainCoordinates.WorldY(
-            context,
-            y);
-
-        var octaves = context.Settings.Octaves;
-        var persistence = context.Settings.Persistence;
-
-        double variation =
-            noise.CoreFractal(
-                worldX,
-                worldY,
-                octaves,
-                persistence);
-
-        return variation;
+            default:
+                throw new NotImplementedException();
+        }
     }
 }
