@@ -152,7 +152,7 @@ async function createChunkBitmap(biomes, structures) {
     for (let i = 0; i < totalCells; i++) {
         let color = { r: 0, g: 0, b: 0 };
 
-        if (biomes && biomes[i] > 0) {
+        if (biomes) {
             color = getBiomeColor(biomes[i]);
         }
 
