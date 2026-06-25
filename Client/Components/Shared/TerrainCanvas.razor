@@ -16,6 +16,7 @@
 
     [Parameter] public TerrainWorld? World { get; set; }
     [Parameter] public int ChunkSize { get; set; } = 256;
+    [Parameter] public int TileSize { get; set; } = 4;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -27,7 +28,11 @@
 
             _reference = DotNetObjectReference.Create(this);
 
-            await _module.InvokeVoidAsync("init", _element, _reference, ChunkSize);
+            await _module.InvokeVoidAsync("init", _element, _reference, new
+            {
+                ChunkSize,
+                TileSize
+            });
         }
     }
 

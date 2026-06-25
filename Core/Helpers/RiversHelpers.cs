@@ -15,17 +15,23 @@ public static class RiversHelpers
         int target = (int)Math.Sqrt(total) / 4;
         double probability = target / (double)total;
 
-        int[,] visited = new int[height, width];
-        int currentId = 0;
+        var elevations = new double[height, width];
+
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                elevations[y, x] = world[y, x].Elevation;
+
+        var visited = new int[height, width];
+        int current = 0;
 
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                if (world[y, x].Elevation >= 0.70 && random.NextDouble() <= probability)
+                if (elevations[y, x] >= 0.70 && random.NextDouble() <= probability)
                 {
-                    currentId++;
-                    TraceRiver(world, visited, currentId, width, height, x, y);
+                    current++;
+                    TraceRiver(world, elevations, visited, current, width, height, x, y);
                 }
             }
         }
@@ -33,6 +39,7 @@ public static class RiversHelpers
 
     private static void TraceRiver(
         Cell[,] world,
+        double[,] elevations,
         int[,] visited,
         int traceId,
         int width,
@@ -50,10 +57,10 @@ public static class RiversHelpers
 
             visited[currentY, currentX] = traceId;
 
-            if (world[currentY, currentX].Elevation <= 0.3)
+            if (elevations[currentY, currentX] <= 0.3)
                 break;
 
-            var (nextX, nextY) = FindLowestNeighbor(world, width, height, currentX, currentY);
+            var (nextX, nextY) = FindLowestNeighbor(elevations, width, height, currentX, currentY);
 
             if (nextX == currentX && nextY == currentY)
                 break;
@@ -66,37 +73,40 @@ public static class RiversHelpers
     }
 
     private static (int X, int Y) FindLowestNeighbor(
-        Cell[,] world,
+        double[,] elevations,
         int width,
         int height,
         int x,
         int y)
     {
+        double lowest = elevations[y, x];
         int lowestX = x;
         int lowestY = y;
-        double lowestElevation = world[y, x].Elevation;
 
-        int minY = Math.Max(0, y - 1);
-        int maxY = Math.Min(height - 1, y + 1);
-        int minX = Math.Max(0, x - 1);
-        int maxX = Math.Min(width - 1, x + 1);
+        bool hasLeft = x > 0;
+        bool hasRight = x < width - 1;
+        bool hasTop = y > 0;
+        bool hasBottom = y < height - 1;
 
-        for (int ny = minY; ny <= maxY; ny++)
+        double e;
+
+        if (hasTop)
         {
-            for (int nx = minX; nx <= maxX; nx++)
-            {
-                if (nx == x && ny == y)
-                    continue;
+            int ny = y - 1;
+            if (hasLeft && (e = elevations[ny, x - 1]) < lowest) { lowest = e; lowestX = x - 1; lowestY = ny; }
+            if ((e = elevations[ny, x]) < lowest) { lowest = e; lowestX = x; lowestY = ny; }
+            if (hasRight && (e = elevations[ny, x + 1]) < lowest) { lowest = e; lowestX = x + 1; lowestY = ny; }
+        }
 
-                double neighborElevation = world[ny, nx].Elevation;
+        if (hasLeft && (e = elevations[y, x - 1]) < lowest) { lowest = e; lowestX = x - 1; lowestY = y; }
+        if (hasRight && (e = elevations[y, x + 1]) < lowest) { lowest = e; lowestX = x + 1; lowestY = y; }
 
-                if (neighborElevation < lowestElevation)
-                {
-                    lowestElevation = neighborElevation;
-                    lowestX = nx;
-                    lowestY = ny;
-                }
-            }
+        if (hasBottom)
+        {
+            int ny = y + 1;
+            if (hasLeft && (e = elevations[ny, x - 1]) < lowest) { lowest = e; lowestX = x - 1; lowestY = ny; }
+            if ((e = elevations[ny, x]) < lowest) { lowest = e; lowestX = x; lowestY = ny; }
+            if (hasRight && (e = elevations[ny, x + 1]) < lowest) { lowest = e; lowestX = x + 1; lowestY = ny; }
         }
 
         return (lowestX, lowestY);

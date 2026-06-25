@@ -49,33 +49,28 @@ public static class MoistureHelpers
         int height = world.GetLength(0);
         int width = world.GetLength(1);
 
-        var rivers = new List<(int X, int Y)>(64);
-
         for (int y = 0; y < height; y++)
         {
+            int minDy = Math.Max(-2, -y);
+            int maxDy = Math.Min(2, height - 1 - y);
+
             for (int x = 0; x < width; x++)
             {
-                if (world[y, x].River > 0)
-                {
-                    rivers.Add((x, y));
-                }
-            }
-        }
+                if (world[y, x].River <= 0)
+                    continue;
 
-        foreach (var (rx, ry) in rivers)
-        {
-            int minDy = Math.Max(-2, -ry);
-            int maxDy = Math.Min(2, height - 1 - ry);
-            int minDx = Math.Max(-2, -rx);
-            int maxDx = Math.Min(2, width - 1 - rx);
+                int minDx = Math.Max(-2, -x);
+                int maxDx = Math.Min(2, width - 1 - x);
 
-            for (int dy = minDy; dy <= maxDy; dy++)
-            {
-                int ny = ry + dy;
-                for (int dx = minDx; dx <= maxDx; dx++)
+                for (int dy = minDy; dy <= maxDy; dy++)
                 {
-                    var cell = world[ny, rx + dx];
-                    cell.Moisture = Math.Clamp(cell.Moisture + 0.15, 0.0, 1.0);
+                    int ny = y + dy;
+
+                    for (int dx = minDx; dx <= maxDx; dx++)
+                    {
+                        ref var cell = ref world[ny, x + dx];
+                        cell.Moisture = Math.Clamp(cell.Moisture + 0.15, 0.0, 1.0);
+                    }
                 }
             }
         }

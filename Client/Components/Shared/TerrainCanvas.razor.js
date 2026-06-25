@@ -1,4 +1,4 @@
-let canvas, ctx, dotNetRef, chunkSize;
+let canvas, ctx, dotnet, chunkSize, tileSize;
 let zoom = 1.0;
 let panX = 0;
 let panY = 0;
@@ -9,11 +9,15 @@ let startY = 0;
 const chunkCache = new Map();      // Key: "x,y" -> Value: ImageBitmap
 const requestedChunks = new Set(); // Tracks active Blazor interop fetches
 
-export function init(canvasElement, componentRef, size) {
-    canvas = canvasElement;
-    ctx = canvas.getContext("2d");
-    dotNetRef = componentRef;
-    chunkSize = size;
+export function init(element, instance, options) {
+    canvas = element;
+    ctx = canvas.getContext("2d", {
+        alpha: false,
+        desynchronized: true
+    });
+    dotnet = instance;
+    chunkSize = options.chunkSize;
+    tileSize = options.tileSize;
 
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
@@ -82,6 +86,8 @@ function onWheel(e) {
 function renderLoop() {
     if (!canvas) return;
 
+    ctx.imageSmoothingEnabled = false;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
@@ -94,10 +100,13 @@ function renderLoop() {
     const minWorldY = -panY / zoom;
     const maxWorldY = (canvas.height - panY) / zoom;
 
-    const minChunkX = Math.floor(minWorldX / chunkSize);
-    const maxChunkX = Math.floor(maxWorldX / chunkSize);
-    const minChunkY = Math.floor(minWorldY / chunkSize);
-    const maxChunkY = Math.floor(maxWorldY / chunkSize);
+    const worldChunkSize = chunkSize * tileSize;
+
+    const minChunkX = Math.floor(minWorldX / worldChunkSize);
+    const maxChunkX = Math.floor(maxWorldX / worldChunkSize);
+
+    const minChunkY = Math.floor(minWorldY / worldChunkSize);
+    const maxChunkY = Math.floor(maxWorldY / worldChunkSize);
 
     // Render loop only processes chunks entering the viewport matrix
     for (let cy = minChunkY; cy <= maxChunkY; cy++) {
@@ -105,7 +114,13 @@ function renderLoop() {
             const key = `${cx},${cy}`;
 
             if (chunkCache.has(key)) {
-                ctx.drawImage(chunkCache.get(key), cx * chunkSize, cy * chunkSize);
+                ctx.drawImage(
+                    chunkCache.get(key),
+                    cx * chunkSize * tileSize,
+                    cy * chunkSize * tileSize,
+                    chunkSize * tileSize,
+                    chunkSize * tileSize
+                );
             } else if (!requestedChunks.has(key)) {
                 requestedChunks.add(key);
                 startRendering(cx, cy);
@@ -118,7 +133,7 @@ function renderLoop() {
 }
 
 function startRendering(cx, cy) {
-    dotNetRef.invokeMethodAsync("StartRendering", cx, cy)
+    dotnet.invokeMethodAsync("StartRendering", cx, cy)
         .catch(err => console.error(`Error initiating chunk fetch [${cx}, ${cy}]:`, err));
 }
 

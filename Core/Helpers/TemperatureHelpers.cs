@@ -3,7 +3,7 @@ using Core.Services;
 
 namespace Core.Helpers;
 
-public sealed class TemperatureHelpers
+public static class TemperatureHelpers
 {
     public static void AddTemperature(Cell[,] world, TerrainContext context)
     {
@@ -25,17 +25,18 @@ public sealed class TemperatureHelpers
             for (int x = 0; x < width; x++)
             {
                 ref var cell = ref world[y, x];
+
+                if (cell.Elevation < 0.10)
+                    continue;
+
                 int worldX = TerrainCoordinates.WorldX(context, x);
 
-                double fractal = noise.SampleFractal(
-                    worldX,
-                    worldY,
-                    octaves,
-                    persistence);
+                double fractal = noise.SampleFractal(worldX, worldY, octaves, persistence);
 
-                double temperature = 0.7 - (cell.Elevation * 0.5) + (fractal * 0.2);
-
-                cell.Temperature = Math.Clamp(temperature, 0.0, 1.0);
+                cell.Temperature = Math.Clamp(
+                    0.7 - cell.Elevation * 0.5 + fractal * 0.2,
+                    0.0,
+                    1.0);
             }
         });
     }
