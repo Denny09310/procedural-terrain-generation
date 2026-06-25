@@ -15,7 +15,7 @@
     private TerrainWorld? _old;
 
     [Parameter] public TerrainWorld? World { get; set; }
-    [Parameter] public int ChunkSize { get; set; } = 256;
+    [Parameter] public int ChunkSize { get; set; } = 128;
     [Parameter] public int TileSize { get; set; } = 4;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

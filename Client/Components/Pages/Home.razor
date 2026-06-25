@@ -11,54 +11,113 @@
 @using Core.Models
 @using Core.Services
 
-@if (_world != null)
-{
-    <BbInputGroup Class="fixed top-4 left-4 z-50 max-w-md">
-        <BbInputGroupAddon Align="InputGroupAlign.InlineStart">
-            <LucideIcon Name="search" Size="16" />
-        </BbInputGroupAddon>
-        <BbInputGroupInput Placeholder="Insert a custom seed" ValueChanged="OnSeedChanged" />
-    </BbInputGroup>
-
-    <TerrainCanvas World="_world" ChunkSize="@CHUNK_SIZE" />
-}
-else
+@if (_world is null)
 {
     <div class="fixed inset-0 flex items-center justify-center select-none">
         <BbSpinner Size="SpinnerSize.Large" />
     </div>
 }
+else
+{
+    <BbCard Class="fixed top-4 left-4 z-50 w-96 max-h-[calc(100vh-2rem)] overflow-y-auto shadow-lg">
+        <BbCardHeader>
+            <BbCardTitle>World Generator</BbCardTitle>
+        </BbCardHeader>
+
+        <BbCardContent Class="space-y-5">
+
+            <BbField>
+                <BbFieldLabel>
+                    <BbLabel>Seed</BbLabel>
+                </BbFieldLabel>
+                <BbFieldContent class="flex-row items-center gap-x-2">
+                    <BbNumericInput @bind-Value="_options.Seed" />
+                    <BbButton Size="ButtonSize.Icon" @onclick="RandomizeSeed">
+                        <LucideIcon Name="shuffle" Size="16" />
+                    </BbButton>
+                </BbFieldContent>
+            </BbField>
+
+            <BbFormFieldSelect @bind-Value="_options.Shape" Label="Terrain Shape">
+                <BbSelectItem Value="TerrainShape.Continent" Text="Continent" />
+                <BbSelectItem Value="TerrainShape.InlandSea" Text="Inland Sea" />
+                <BbSelectItem Value="TerrainShape.Archipelago" Text="Archipelago" />
+                <BbSelectItem Value="TerrainShape.Mountains" Text="Mountains" />
+                <BbSelectItem Value="TerrainShape.Plains" Text="Plains" />
+            </BbFormFieldSelect>
+
+            <BbFormFieldSwitch @bind-Checked="_options.GenerateSettlements" Label="Generate Settlements"
+                               Orientation="FieldOrientation.Horizontal" />
+
+            <BbFormFieldSwitch @bind-Checked="_autoGenerate" Label="Auto Generate"
+                               Orientation="FieldOrientation.Horizontal" />
+
+            <BbButton Class="w-full" @onclick="GenerateWorld">
+                Generate World
+            </BbButton>
+
+        </BbCardContent>
+    </BbCard>
+
+    <TerrainCanvas World="_world" />
+}
 
 @code
 {
-    private const int CHUNK_SIZE = 128;
-
     private TerrainWorld? _world;
+
+    private bool _autoGenerate = true;
+
+    private readonly WorldGenerationOptions _options = new()
+    {
+        Seed = 0,
+        Shape = TerrainShape.Continent,
+        GenerateSettlements = true
+    };
 
     protected override void OnInitialized()
     {
         GenerateWorld();
     }
 
-    private void OnSeedChanged(string value)
+    private void RandomizeSeed()
     {
-        if (string.IsNullOrWhiteSpace(value) || !int.TryParse(value, out var seed))
-            return;
+        _options.Seed = Random.Shared.Next();
 
-        GenerateWorld(seed);
+        if (_autoGenerate)
+            GenerateWorld();
     }
 
-    private void GenerateWorld(int seed = 0)
+    private void GenerateWorld()
     {
-        _world = new TerrainBuilder(CHUNK_SIZE, seed)
-            .WithSettings(settings => settings with { Shape = TerrainShape.Continent })
+        var builder = new TerrainBuilder(128, _options.Seed)
+            .WithSettings(settings => settings with
+            {
+                Shape = _options.Shape
+            })
             .WithTransformer(AddElevation)
             .WithTransformer(AddMoisture)
             .WithTransformer(AddTemperature)
             .WithTransformer(GenerateRivers)
             .WithTransformer(RecalculateMoisture)
-            .WithTransformer(ClassifyTerrain)
-            .WithTransformer(AddSettlements)
-            .Build();
+            .WithTransformer(ClassifyTerrain);
+
+        if (_options.GenerateSettlements)
+        {
+            builder = builder.WithTransformer(AddSettlements);
+        }
+
+        _world = builder.Build();
+
+        StateHasChanged();
+    }
+
+    public class WorldGenerationOptions
+    {
+        public int Seed { get; set; }
+
+        public TerrainShape Shape { get; set; } = TerrainShape.Continent;
+
+        public bool GenerateSettlements { get; set; } = true;
     }
 }
