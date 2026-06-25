@@ -2,13 +2,9 @@ using Core.Models;
 
 namespace Core.Services;
 
-public delegate void TerrainTransformer(
-    Cell[,] world,
-    TerrainContext context);
-
 public sealed class TerrainBuilder(int size, int seed)
 {
-    private readonly List<TerrainTransformer> _transformers = [];
+    private readonly List<Delegate> _transformers = [];
 
     private TerrainSettings _settings = new(
         ChunkSize: size,
@@ -25,7 +21,7 @@ public sealed class TerrainBuilder(int size, int seed)
         return this;
     }
 
-    public TerrainBuilder WithTransformer(TerrainTransformer transformer)
+    public TerrainBuilder WithTransformer(Delegate transformer)
     {
         _transformers.Add(transformer);
         return this;

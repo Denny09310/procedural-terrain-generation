@@ -138,13 +138,11 @@ function startRendering(cx, cy) {
 }
 
 export function endRendering(cx, cy, biomes, structures) {
-    if (biomes) {
-        createChunkBitmap(biomes, structures).then(bitmap => {
-            chunkCache.set(`${cx},${cy}`, bitmap);
-        }).catch(err => {
-            console.error(`Error processing bitmap for [${cx}, ${cy}]:`, err);
-        });
-    }
+    createChunkBitmap(biomes, structures).then(bitmap => {
+        chunkCache.set(`${cx},${cy}`, bitmap);
+    }).catch(err => {
+        console.error(`Error processing bitmap for [${cx}, ${cy}]:`, err);
+    });
 }
 
 async function createChunkBitmap(biomes, structures) {
@@ -152,7 +150,11 @@ async function createChunkBitmap(biomes, structures) {
     const buffer = new Uint8ClampedArray(totalCells * 4);
 
     for (let i = 0; i < totalCells; i++) {
-        let color = getBiomeColor(biomes[i]);
+        let color = { r: 0, g: 0, b: 0 };
+
+        if (biomes && biomes[i] > 0) {
+            color = getBiomeColor(biomes[i]);
+        }
 
         if (structures && structures[i] > 0) {
             color = getStructureColor(structures[i]);
