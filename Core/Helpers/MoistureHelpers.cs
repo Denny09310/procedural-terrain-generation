@@ -49,7 +49,7 @@ public static class MoistureHelpers
         int height = world.GetLength(0);
         int width = world.GetLength(1);
 
-        for (int y = 0; y < height; y++)
+        Parallel.For(0, height, y =>
         {
             int minDy = Math.Max(-2, -y);
             int maxDy = Math.Min(2, height - 1 - y);
@@ -73,6 +73,6 @@ public static class MoistureHelpers
                     }
                 }
             }
-        }
+        });
     }
 }

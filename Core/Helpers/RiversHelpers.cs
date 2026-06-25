@@ -13,7 +13,7 @@ public static class RiversHelpers
         int height = world.GetLength(0);
         int width = world.GetLength(1);
 
-        for (int y = 0; y < height; y++)
+        Parallel.For(0, height, y =>
         {
             for (int x = 0; x < width; x++)
             {
@@ -24,6 +24,6 @@ public static class RiversHelpers
 
                 cell.River = provider.GetRiver(worldX, worldY);
             }
-        }
+        });
     }
 }

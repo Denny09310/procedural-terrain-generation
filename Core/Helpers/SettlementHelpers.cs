@@ -60,9 +60,9 @@ public static class SettlementHelpers
         DrawRoad(world, centerX, centerY, 0, -1, radius);
 
         // Extra roads (2-4)
-        int extraRoads = rand.Next(2, 5);
+        int roads = rand.Next(2, 5);
 
-        for (int i = 0; i < extraRoads; i++)
+        for (int i = 0; i < roads; i++)
         {
             int dir = rand.Next(4);
 
