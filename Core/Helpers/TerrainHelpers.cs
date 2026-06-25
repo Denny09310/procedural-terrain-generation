@@ -23,8 +23,8 @@ public static class TerrainHelpers
 
                 cell.Biome = cell.Elevation switch
                 {
-                    > 0.90 when cell.Temperature < 0.25 => Biome.Snow,
-                    > 0.90 => Biome.Mountains,
+                    > 0.85 when cell.Temperature < 0.25 => Biome.Snow,
+                    > 0.85 => Biome.Mountains,
                     > 0.75 when cell.Temperature < 0.30 => Biome.Snow,
                     > 0.75 => Biome.Hills,
                     > 0.20 when cell.Moisture < 0.25 => Biome.Desert,

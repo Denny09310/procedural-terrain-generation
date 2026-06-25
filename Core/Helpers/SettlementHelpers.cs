@@ -23,7 +23,7 @@ public static class SettlementHelpers
         int centerX = rand.Next(3, width - 3);
         int centerY = rand.Next(3, height - 3);
 
-        ref Cell center = ref world[centerY, centerX];
+        ref var center = ref world[centerY, centerX];
 
         if (center.Biome == Biome.Water ||
             center.Biome == Biome.Mountains ||

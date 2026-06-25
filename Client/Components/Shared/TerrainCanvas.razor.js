@@ -6,8 +6,8 @@ let isDragging = false;
 let startX = 0;
 let startY = 0;
 
-const chunkCache = new Map();      // Key: "x,y" -> Value: ImageBitmap
-const requestedChunks = new Set(); // Tracks active Blazor interop fetches
+const cache = new Map();      // Key: "x,y" -> Value: ImageBitmap
+const chunks = new Set(); // Tracks active Blazor interop fetches
 
 export function init(element, instance, options) {
     canvas = element;
@@ -113,16 +113,16 @@ function renderLoop() {
         for (let cx = minChunkX; cx <= maxChunkX; cx++) {
             const key = `${cx},${cy}`;
 
-            if (chunkCache.has(key)) {
+            if (cache.has(key)) {
                 ctx.drawImage(
-                    chunkCache.get(key),
+                    cache.get(key),
                     cx * chunkSize * tileSize,
                     cy * chunkSize * tileSize,
                     chunkSize * tileSize,
                     chunkSize * tileSize
                 );
-            } else if (!requestedChunks.has(key)) {
-                requestedChunks.add(key);
+            } else if (!chunks.has(key)) {
+                chunks.add(key);
                 startRendering(cx, cy);
             }
         }
@@ -139,7 +139,7 @@ function startRendering(cx, cy) {
 
 export function endRendering(cx, cy, biomes, structures) {
     createChunkBitmap(biomes, structures).then(bitmap => {
-        chunkCache.set(`${cx},${cy}`, bitmap);
+        cache.set(`${cx},${cy}`, bitmap);
     }).catch(err => {
         console.error(`Error processing bitmap for [${cx}, ${cy}]:`, err);
     });
@@ -172,9 +172,9 @@ async function createChunkBitmap(biomes, structures) {
 }
 
 export function clearCache() {
-    chunkCache.forEach(bitmap => bitmap.close());
-    chunkCache.clear();
-    requestedChunks.clear();
+    cache.forEach(bitmap => bitmap.close());
+    cache.clear();
+    chunks.clear();
 }
 
 export function dispose() {
