@@ -1,5 +1,5 @@
 namespace Core.Models;
 
-public sealed record TerrainLayerSetting(
+public sealed record TerrainLayer(
     int BlockSize,
     long NoiseSeed);

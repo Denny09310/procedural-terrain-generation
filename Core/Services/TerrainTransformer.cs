@@ -5,13 +5,26 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Services;
 
+public sealed record TerrainHandler(
+    Delegate Delegate,
+    MethodInfo Method,
+    ParameterInfo[] Parameters);
+
 public delegate void TerrainTransformer(
     Cell[,] world,
     TerrainContext context);
 
 public static class TerrainTransformerBinder
 {
-    public static TerrainTransformer Bind(MethodInfo method, IServiceProvider services)
+    private static readonly MethodInfo Getter =
+        typeof(ServiceProviderServiceExtensions)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(m =>
+                m.Name == nameof(ServiceProviderServiceExtensions.GetRequiredService) &&
+                m.IsGenericMethodDefinition &&
+                m.GetParameters().Length == 1);
+
+    public static TerrainTransformer Bind(TerrainHandler handler, IServiceProvider services)
     {
         var cells = Expression.Parameter(typeof(Cell[,]), "cells");
         var context = Expression.Parameter(typeof(TerrainContext), "context");
@@ -19,7 +32,7 @@ public static class TerrainTransformerBinder
 
         var arguments = new List<Expression>();
 
-        foreach (var parameter in method.GetParameters())
+        foreach (var parameter in handler.Parameters)
         {
             if (parameter.ParameterType == typeof(Cell[,]))
             {
@@ -33,19 +46,13 @@ public static class TerrainTransformerBinder
                 continue;
             }
 
-            var getter =
-                typeof(ServiceProviderServiceExtensions)
-                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                    .Single(m =>
-                        m.Name == nameof(ServiceProviderServiceExtensions.GetRequiredService) &&
-                        m.IsGenericMethodDefinition &&
-                        m.GetParameters().Length == 1)
-                    .MakeGenericMethod(parameter.ParameterType);
+            var getter = Getter
+                .MakeGenericMethod(parameter.ParameterType);
 
             arguments.Add(Expression.Call(getter, provider));
         }
 
-        var body = Expression.Call(method, arguments);
+        var body = Expression.Call(handler.Method, arguments);
 
         return Expression.Lambda<TerrainTransformer>(
             body,

@@ -1,35 +1,43 @@
 let canvas, ctx, dotnet, chunkSize, tileSize;
+
 let zoom = 1.0;
 let panX = 0;
 let panY = 0;
+
 let isDragging = false;
 let startX = 0;
 let startY = 0;
 
-const cache = new Map();      // Key: "x,y" -> Value: ImageBitmap
-const chunks = new Set(); // Tracks active Blazor interop fetches
+const cache = new Map();
+const pending = new Set();
+const visible = new Set();
+
+const radius = 2;
+
+let previousBounds = null;
 
 export function init(element, instance, options) {
     canvas = element;
+
     ctx = canvas.getContext("2d", {
         alpha: false,
         desynchronized: true
     });
+
     dotnet = instance;
     chunkSize = options.chunkSize;
     tileSize = options.tileSize;
 
     resizeCanvas();
+
     window.addEventListener("resize", resizeCanvas);
 
-    // Pointer events handle both Mouse and Touch inputs automatically
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointermove", onPointerMove);
     canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
     canvas.addEventListener("wheel", onWheel, { passive: false });
 
-    // Kick off the 60 FPS  ing cycle
     requestAnimationFrame(renderLoop);
 }
 
@@ -38,33 +46,42 @@ function resizeCanvas() {
     canvas.height = window.innerHeight;
 }
 
-// --- Interaction Handlers ---
+// -----------------------------------------------------------------------------
+// Interaction
+// -----------------------------------------------------------------------------
+
 function onPointerDown(e) {
     isDragging = true;
     canvas.setPointerCapture(e.pointerId);
+
     startX = e.clientX - panX;
     startY = e.clientY - panY;
 }
 
 function onPointerMove(e) {
-    if (!isDragging) return;
+    if (!isDragging)
+        return;
+
     panX = e.clientX - startX;
     panY = e.clientY - startY;
 }
 
 function onPointerUp(e) {
-    if (!isDragging) return;
+    if (!isDragging)
+        return;
+
     isDragging = false;
     canvas.releasePointerCapture(e.pointerId);
 }
 
 function onWheel(e) {
     e.preventDefault();
+
     const zoomFactor = 1.15;
+
     const mouseX = e.clientX;
     const mouseY = e.clientY;
 
-    // Pinpoint what world coordinate the mouse is hovering over before zooming
     const worldX = (mouseX - panX) / zoom;
     const worldY = (mouseY - panY) / zoom;
 
@@ -74,136 +91,299 @@ function onWheel(e) {
         zoom /= zoomFactor;
     }
 
-    // Cap zoom limits
     zoom = Math.max(0.05, Math.min(zoom, 15.0));
 
-    // Readjust pan coordinates so the mouse pointer remains anchored to the same world spot
     panX = mouseX - worldX * zoom;
     panY = mouseY - worldY * zoom;
 }
 
-// --- Dynamic Render Loop ---
+// -----------------------------------------------------------------------------
+// Rendering
+// -----------------------------------------------------------------------------
+
+function parse(key) {
+    return key.split(",").map(Number);
+}
+
+function updateVisibleChunks(minChunkX, maxChunkX, minChunkY, maxChunkY) {
+
+    const next = new Set();
+
+    for (let y = minChunkY; y <= maxChunkY; y++) {
+
+        for (let x = minChunkX; x <= maxChunkX; x++) {
+
+            next.add(`${x},${y}`);
+        }
+    }
+
+    //
+    // Load newly visible chunks
+    //
+
+    const requests = [];
+
+    const centerWorldX =
+        (-panX / zoom) + canvas.width / (2 * zoom);
+
+    const centerWorldY =
+        (-panY / zoom) + canvas.height / (2 * zoom);
+
+    const centerChunkX =
+        Math.floor(centerWorldX / chunkSize);
+
+    const centerChunkY =
+        Math.floor(centerWorldY / chunkSize);
+
+    for (const key of next) {
+
+        if (visible.has(key))
+            continue;
+
+        visible.add(key);
+
+        if (cache.has(key) || pending.has(key))
+            continue;
+
+        const [x, y] = parse(key);
+
+        requests.push({
+            key,
+            x,
+            y,
+            priority:
+                (x - centerChunkX) ** 2 +
+                (y - centerChunkY) ** 2
+        });
+    }
+
+    requests.sort((a, b) => a.priority - b.priority);
+
+    for (const request of requests) {
+
+        pending.add(request.key);
+
+        startRendering(
+            request.x,
+            request.y);
+    }
+
+    //
+    // Unload chunks leaving the visible area
+    //
+
+    const removed = [];
+
+    for (const key of visible) {
+
+        if (next.has(key))
+            continue;
+
+        visible.delete(key);
+
+        const [x, y] = parse(key);
+        removed.push({ x, y });
+
+        const bitmap = cache.get(key);
+
+        if (bitmap) {
+            bitmap.close();
+            cache.delete(key);
+        }
+
+        pending.delete(key);
+    }
+
+    if (removed.length > 0) {
+
+        dotnet.invokeMethodAsync(
+            "UnloadChunks",
+            removed)
+            .catch(console.error);
+    }
+}
+
 function renderLoop() {
-    if (!canvas) return;
+
+    if (!canvas)
+        return;
 
     ctx.imageSmoothingEnabled = false;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
+
     ctx.translate(panX, panY);
     ctx.scale(zoom, zoom);
 
-    // Calculate reverse matrix bounds to find out exactly what chunks are visible on screen
+    const worldChunkSize = chunkSize * tileSize;
+
     const minWorldX = -panX / zoom;
     const maxWorldX = (canvas.width - panX) / zoom;
+
     const minWorldY = -panY / zoom;
     const maxWorldY = (canvas.height - panY) / zoom;
 
-    const worldChunkSize = chunkSize * tileSize;
+    const minChunkX =
+        Math.floor(minWorldX / worldChunkSize) - radius;
 
-    const minChunkX = Math.floor(minWorldX / worldChunkSize);
-    const maxChunkX = Math.floor(maxWorldX / worldChunkSize);
+    const maxChunkX =
+        Math.floor(maxWorldX / worldChunkSize) + radius;
 
-    const minChunkY = Math.floor(minWorldY / worldChunkSize);
-    const maxChunkY = Math.floor(maxWorldY / worldChunkSize);
+    const minChunkY =
+        Math.floor(minWorldY / worldChunkSize) - radius;
 
-    // Render loop only processes chunks entering the viewport matrix
-    for (let cy = minChunkY; cy <= maxChunkY; cy++) {
-        for (let cx = minChunkX; cx <= maxChunkX; cx++) {
-            const key = `${cx},${cy}`;
+    const maxChunkY =
+        Math.floor(maxWorldY / worldChunkSize) + radius;
 
-            if (cache.has(key)) {
-                ctx.drawImage(
-                    cache.get(key),
-                    cx * chunkSize * tileSize,
-                    cy * chunkSize * tileSize,
-                    chunkSize * tileSize,
-                    chunkSize * tileSize
-                );
-            } else if (!chunks.has(key)) {
-                chunks.add(key);
-                startRendering(cx, cy);
-            }
-        }
+    updateVisibleChunks(
+        minChunkX,
+        maxChunkX,
+        minChunkY,
+        maxChunkY);
+
+    for (const key of visible) {
+
+        const bitmap = cache.get(key);
+
+        if (!bitmap)
+            continue;
+
+        const [cx, cy] = parse(key);
+
+        ctx.drawImage(
+            bitmap,
+            cx * worldChunkSize,
+            cy * worldChunkSize,
+            worldChunkSize,
+            worldChunkSize);
     }
 
     ctx.restore();
+
     requestAnimationFrame(renderLoop);
 }
 
+// -----------------------------------------------------------------------------
+// Synchronization
+// -----------------------------------------------------------------------------
+
 function startRendering(cx, cy) {
+
     dotnet.invokeMethodAsync("StartRendering", cx, cy)
-        .catch(err => console.error(`Error initiating chunk fetch [${cx}, ${cy}]:`, err));
+        .catch(err => {
+
+            pending.delete(`${cx},${cy}`);
+
+            console.error(err);
+        });
 }
 
 export function endRendering(cx, cy, biomes, structures) {
-    createChunkBitmap(biomes, structures).then(bitmap => {
-        cache.set(`${cx},${cy}`, bitmap);
-    }).catch(err => {
-        console.error(`Error processing bitmap for [${cx}, ${cy}]:`, err);
-    });
+
+    const key = `${cx},${cy}`;
+
+    pending.delete(key);
+
+    createChunkBitmap(biomes, structures)
+        .then(bitmap => {
+
+            const previous = cache.get(key);
+
+            if (previous) {
+                previous.close();
+            }
+
+            cache.set(key, bitmap);
+        })
+        .catch(err => console.error(err));
 }
 
+// -----------------------------------------------------------------------------
+// Bitmap generation
+// -----------------------------------------------------------------------------
+
 async function createChunkBitmap(biomes, structures) {
+
     const totalCells = chunkSize * chunkSize;
-    const buffer = new Uint8ClampedArray(totalCells * 4);
+
+    const pixels = new Uint8ClampedArray(totalCells * 4);
 
     for (let i = 0; i < totalCells; i++) {
-        let color = { r: 0, g: 0, b: 0 };
 
-        if (biomes) {
-            color = getBiomeColor(biomes[i]);
-        }
+        let color = getBiomeColor(biomes[i]);
 
-        if (structures && structures[i] > 0) {
+        if (structures[i] > 0) {
             color = getStructureColor(structures[i]);
         }
 
         const offset = i * 4;
-        buffer[offset] = color.r;
-        buffer[offset + 1] = color.g;
-        buffer[offset + 2] = color.b;
-        buffer[offset + 3] = 255;
+
+        pixels[offset] = color.r;
+        pixels[offset + 1] = color.g;
+        pixels[offset + 2] = color.b;
+        pixels[offset + 3] = 255;
     }
 
-    const imageData = new ImageData(buffer, chunkSize, chunkSize);
-    return await createImageBitmap(imageData);
+    return createImageBitmap(
+        new ImageData(
+            pixels,
+            chunkSize,
+            chunkSize));
 }
 
+// -----------------------------------------------------------------------------
+// Cache
+// -----------------------------------------------------------------------------
+
 export function clearCache() {
-    cache.forEach(bitmap => bitmap.close());
+
+    for (const bitmap of cache.values()) {
+        bitmap.close();
+    }
+
     cache.clear();
-    chunks.clear();
+    pending.clear();
+    visible.clear();
 }
 
 export function dispose() {
+
     window.removeEventListener("resize", resizeCanvas);
+
     clearCache();
+
     canvas = null;
     ctx = null;
 }
 
+// -----------------------------------------------------------------------------
+// Colors
+// -----------------------------------------------------------------------------
+
 function getBiomeColor(biome) {
+
     switch (biome) {
-        case 0: return { r: 0, g: 105, b: 148 };   // Water (Deep Blue)
-        case 1: return { r: 30, g: 144, b: 255 };  // River (Dodger Blue)
-        case 2: return { r: 238, g: 214, b: 175 }; // Beach (Sand)
-        case 3: return { r: 210, g: 180, b: 140 }; // Desert (Tan/Desert Sand)
-        case 4: return { r: 50, g: 205, b: 50 };   // Plains (Lime Green)
-        case 5: return { r: 34, g: 139, b: 34 };   // Forest (Forest Green)
-        case 6: return { r: 120, g: 120, b: 120 }; // Hills (Light Gray)
-        case 7: return { r: 90, g: 90, b: 90 };    // Mountains (Dark Rock Gray)
-        case 8: return { r: 255, g: 255, b: 255 }; // Snow (Pure White)
-        default: return { r: 255, g: 0, b: 255 };  // Error Fallback (Magenta)
+        case 0: return { r: 0, g: 105, b: 148 };
+        case 1: return { r: 30, g: 144, b: 255 };
+        case 2: return { r: 238, g: 214, b: 175 };
+        case 3: return { r: 210, g: 180, b: 140 };
+        case 4: return { r: 50, g: 205, b: 50 };
+        case 5: return { r: 34, g: 139, b: 34 };
+        case 6: return { r: 120, g: 120, b: 120 };
+        case 7: return { r: 90, g: 90, b: 90 };
+        case 8: return { r: 255, g: 255, b: 255 };
+        default: return { r: 255, g: 0, b: 255 };
     }
 }
 
 function getStructureColor(structure) {
+
     switch (structure) {
-        case 1: return { r: 220, g: 20, b: 60 };   // CityCenter (Crimson Red Hub)
-        case 2: return { r: 139, g: 69, b: 19 };   // House (Saddle Brown Roof)
-        case 3: return { r: 105, g: 105, b: 105 };  // Road (Dim Gray Gravel)
-        default: return { r: 255, g: 255, b: 0 };   // Unknown/Fallback (Yellow)
+        case 1: return { r: 220, g: 20, b: 60 };
+        case 2: return { r: 139, g: 69, b: 19 };
+        case 3: return { r: 105, g: 105, b: 105 };
+        default: return { r: 255, g: 255, b: 0 };
     }
 }

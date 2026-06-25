@@ -1,6 +1,9 @@
 namespace Core.Models;
 
 public sealed record TerrainChunk(
-    int ChunkX,
-    int ChunkY,
+    ChunkCoordinates Coordinates,
     Cell[,] Cells);
+
+public readonly record struct ChunkCoordinates(
+    int X,
+    int Y);

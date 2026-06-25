@@ -5,6 +5,6 @@ public sealed record TerrainSettings(
     int Octaves,
     double Persistence,
     TerrainShape Shape,
-    TerrainLayerSetting Elevation,
-    TerrainLayerSetting Moisture,
-    TerrainLayerSetting Temperature);
+    TerrainLayer Elevation,
+    TerrainLayer Moisture,
+    TerrainLayer Temperature);

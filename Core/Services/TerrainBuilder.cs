@@ -4,16 +4,16 @@ namespace Core.Services;
 
 public sealed class TerrainBuilder(int size, int seed)
 {
-    private readonly List<Delegate> _transformers = [];
+    private readonly List<TerrainHandler> _transformers = [];
 
     private TerrainSettings _settings = new(
         ChunkSize: size,
         Octaves: 4,
         Persistence: 0.5,
         Shape: TerrainShape.Archipelago,
-        Elevation: new TerrainLayerSetting(BlockSize: size / 10, NoiseSeed: seed),
-        Moisture: new TerrainLayerSetting(BlockSize: size / 6, NoiseSeed: seed ^ 0x4F3A1C2B),
-        Temperature: new TerrainLayerSetting(BlockSize: size / 5, NoiseSeed: seed ^ 0x9E3779B9));
+        Elevation: new TerrainLayer(BlockSize: size / 10, NoiseSeed: seed),
+        Moisture: new TerrainLayer(BlockSize: size / 6, NoiseSeed: seed ^ 0x4F3A1C2B),
+        Temperature: new TerrainLayer(BlockSize: size / 5, NoiseSeed: seed ^ 0x9E3779B9));
 
     public TerrainBuilder WithSettings(Func<TerrainSettings, TerrainSettings> configure)
     {
@@ -21,9 +21,14 @@ public sealed class TerrainBuilder(int size, int seed)
         return this;
     }
 
-    public TerrainBuilder WithTransformer(Delegate transformer)
+    public TerrainBuilder WithTransformer<TDelegate>(TDelegate transformer)
+        where TDelegate : Delegate
     {
-        _transformers.Add(transformer);
+        _transformers.Add(new TerrainHandler(
+            transformer,
+            transformer.Method,
+            transformer.Method.GetParameters()));
+
         return this;
     }
 

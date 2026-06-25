@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Core.Models;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -5,7 +6,7 @@ namespace Core.Services;
 
 public sealed class TerrainWorld : IDisposable
 {
-    private readonly Dictionary<(int, int), TerrainChunk> _cache = [];
+    private readonly Dictionary<ChunkCoordinates, TerrainChunk> _cache = [];
     private readonly int _seed;
     private readonly TerrainSettings _settings;
     private readonly IReadOnlyList<TerrainTransformer> _transformers;
@@ -14,7 +15,7 @@ public sealed class TerrainWorld : IDisposable
     public TerrainWorld(
         int seed,
         TerrainSettings settings,
-        IReadOnlyList<Delegate> delegates)
+        IReadOnlyList<TerrainHandler> handlers)
     {
         var services = new ServiceCollection();
 
@@ -29,11 +30,12 @@ public sealed class TerrainWorld : IDisposable
         _seed = seed;
         _settings = settings;
 
-        _transformers = delegates
-            .Select(x => TerrainTransformerBinder.Bind(x.Method, _provider))
+        _transformers = handlers
+            .Select(x => TerrainTransformerBinder.Bind(x, _provider))
             .ToList();
     }
 
+    public IEnumerable<ChunkCoordinates> Chunks => _cache.Keys;
 
     public void Dispose()
     {
@@ -43,20 +45,55 @@ public sealed class TerrainWorld : IDisposable
         }
     }
 
-    public TerrainChunk GetChunk(
+    public TerrainChunk LoadChunk(
         int chunkX,
         int chunkY)
     {
-        if (_cache.TryGetValue((chunkX, chunkY), out var chunk))
+        if (_cache.TryGetValue(new(chunkX, chunkY), out var chunk))
         {
             return chunk;
         }
 
         chunk = GenerateChunk(chunkX, chunkY);
 
-        _cache[(chunkX, chunkY)] = chunk;
+        _cache[new(chunkX, chunkY)] = chunk;
 
         return chunk;
+    }
+
+    public bool IsChunkLoaded(
+        int chunkX,
+        int chunkY)
+    {
+        return _cache.ContainsKey(new(chunkX, chunkY));
+    }
+
+    public bool TryGetLoadedChunk(
+        int chunkX,
+        int chunkY,
+        [NotNullWhen(true)] out TerrainChunk? chunk)
+    {
+        return _cache.TryGetValue(new(chunkX, chunkY), out chunk);
+    }
+
+    public bool UnloadChunk(
+        int chunkX,
+        int chunkY)
+    {
+        return _cache.Remove(new(chunkX, chunkY));
+    }
+
+    public void UnloadChunks(IEnumerable<ChunkCoordinates> coordinates)
+    {
+        foreach (var (chunkX, chunkY) in coordinates)
+        {
+            _cache.Remove(new(chunkX, chunkY));
+        }
+    }
+
+    public void UnloadAllChunks()
+    {
+        _cache.Clear();
     }
 
     private TerrainChunk GenerateChunk(
@@ -82,8 +119,7 @@ public sealed class TerrainWorld : IDisposable
         }
 
         return new TerrainChunk(
-            chunkX,
-            chunkY,
+            new ChunkCoordinates(chunkX, chunkY),
             cells);
     }
 

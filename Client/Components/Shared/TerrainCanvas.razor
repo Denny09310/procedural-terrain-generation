@@ -1,4 +1,5 @@
 @using System.Buffers
+@using Core.Models
 @using Core.Services
 @implements IAsyncDisposable
 
@@ -64,7 +65,7 @@
             // Compute map calculations safely on a background thread pool worker
             await Task.Run(() =>
             {
-                var chunk = World.GetChunk(chunkX, chunkY);
+                var chunk = World.LoadChunk(chunkX, chunkY);
 
                 int height = chunk.Cells.GetLength(0);
                 int width = chunk.Cells.GetLength(1);
@@ -95,6 +96,14 @@
             ArrayPool<byte>.Shared.Return(biomes);
             ArrayPool<byte>.Shared.Return(structures);
         }
+    }
+
+    [JSInvokable]
+    public Task UnloadChunks(ChunkCoordinates[] coordinates)
+    {
+        World?.UnloadChunks(coordinates);
+
+        return Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
