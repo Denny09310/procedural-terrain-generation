@@ -18,11 +18,11 @@ services.AddSingleton(_ =>
         ChunkSize = 32,      // Generates in manageable chunks
         WorldWidth = 2048,   // Noise stretches across a macro map size
         WorldHeight = 2048,
-        Seed = 12345
+        Seed = 751986325
     });
 
     // Elevation Transformer
-    builder.AddTransfomer((TerrainGrid grid, TerrainContext context, INoiseSource noise) =>
+    builder.AddTransfomer((TerrainGrid grid, TerrainContext context, INoiseSource source) =>
     {
         float invWidth = 1f / context.Config.WorldWidth;
         float invHeight = 1f / context.Config.WorldHeight;
@@ -34,7 +34,7 @@ services.AddSingleton(_ =>
             int worldY = context.OffsetY + cell.Y;
 
             // 2. Sample noise based on world position
-            float rawNoise = noise.SampleFractal(
+            float noise = source.SampleFractal(
                 worldX * invWidth,
                 worldY * invHeight,
                 octaves: 8,
@@ -43,9 +43,9 @@ services.AddSingleton(_ =>
                 lacunarity: 2f);
 
             // 3. Analytical Normalization: Map (-1 to 1) to (0 to 1) safely without knowing min/max
-            float normalized = Math.Clamp((rawNoise + 1f) * 0.5f, 0f, 1f);
+            float normalized = Math.Clamp((noise + 1f) * 0.5f, 0f, 1f);
 
-            cell.Elevation = MathF.Pow(normalized, 1.3f);
+            cell.Elevation = MathF.Pow(normalized, 1.7f);
         }
     });
 
@@ -86,20 +86,43 @@ services.AddSingleton(_ =>
             int worldX = context.OffsetX + cell.X;
             int worldY = context.OffsetY + cell.Y;
 
-            float latitude = 1f - MathF.Abs(worldY * invHeight - 0.5f) * 2f;
-            float lapse = 1f - MathF.Pow(MathF.Max(0f, cell.Elevation - 0.3f), 1.5f);
+            float x = worldX * invWidth;
+            float y = worldY * invHeight;
 
-            float variation = noise.SampleFractal(
-                worldX * invWidth + 1000f,
-                worldY * invHeight + 1000f,
-                octaves: 3,
-                frequency: 2f,
-                persistence: 0.4f,
+            // Large warm regions
+            float heat = noise.SampleFractal(
+                x + 1000f,
+                y + 1000f,
+                octaves: 5,
+                frequency: 0.6f,
+                persistence: 0.5f,
                 lacunarity: 2f);
 
-            float normalizedVariation = variation * 0.1f;
+            // Large cold regions (different seed)
+            float cold = noise.SampleFractal(
+                x + 5000f,
+                y + 5000f,
+                octaves: 5,
+                frequency: 0.6f,
+                persistence: 0.5f,
+                lacunarity: 2f);
 
-            cell.Temperature = Math.Clamp(latitude * lapse + normalizedVariation, 0f, 1f);
+            // Convert [-1,1] -> [0,1]
+            heat = heat * 0.5f + 0.5f;
+            cold = cold * 0.5f + 0.5f;
+
+            // Heat wins, cold subtracts
+            float temperature = heat - cold;
+
+            // Normalize back to [0,1]
+            temperature = temperature * 0.5f + 0.5f;
+
+            // Mountains are colder
+            float lapse = 1f - MathF.Pow(MathF.Max(0f, cell.Elevation - 0.3f), 1.5f);
+
+            temperature *= lapse;
+
+            cell.Temperature = Math.Clamp(temperature, 0f, 1f);
         }
     });
 
