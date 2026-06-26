@@ -9,10 +9,10 @@ public sealed class TerrainGenerator(
 {
     public TerrainConfiguration Config => provider.GetRequiredService<TerrainConfiguration>();
 
-    public async ValueTask<TerrainGrid> GenerateAsync()
+    public async ValueTask<TerrainGrid> GenerateChunkAsync(int chunkX, int chunkY)
     {
-        var grid = new TerrainGrid(Config.Width, Config.Height);
-        var context = new TerrainContext(grid, Config);
+        var grid = new TerrainGrid(Config.ChunkSize, Config.ChunkSize);
+        var context = new TerrainContext(grid, Config, chunkX, chunkY);
 
         foreach (var invoker in invokers)
             await invoker(context);

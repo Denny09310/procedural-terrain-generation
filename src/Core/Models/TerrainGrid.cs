@@ -9,6 +9,9 @@ public sealed class TerrainGrid : IEnumerable<TerrainCell>
     public int Width { get; }
     public int Height { get; }
 
+    public int ChunkX { get; set; }
+    public int ChunkY { get; set; }
+
     public TerrainGrid(int width, int height)
     {
         Width = width;

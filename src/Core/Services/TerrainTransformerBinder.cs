@@ -34,6 +34,9 @@ public sealed class TerrainTransformerBinder(IServiceProvider services)
         if (p.ParameterType == typeof(TerrainConfiguration))
             return ctx => ctx.Config;
 
+        if (p.ParameterType == typeof(TerrainContext))
+            return ctx => ctx;
+
         if (services.GetService(p.ParameterType) is { } svc)
             return _ => svc;
 
