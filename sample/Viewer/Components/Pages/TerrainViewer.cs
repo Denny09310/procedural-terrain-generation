@@ -14,7 +14,6 @@ public partial class TerrainViewer(TerrainGenerator generator)
     {
         var canvas = new TerrainCanvas()
             .Chunks(state, x => x.Chunks)
-            .CellSize(2)
             .OnViewportChanged(async (width, height, offsetX, offsetY, zoom, size) =>
             {
                 await state.UpdateViewportAsync(width, height, offsetX, offsetY, zoom, size);

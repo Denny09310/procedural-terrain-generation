@@ -210,7 +210,12 @@ public sealed class TerrainCanvas : Control
 
     private static WriteableBitmap CreateChunkBitmap(TerrainGrid chunk)
     {
-        var bitmap = new WriteableBitmap(new PixelSize(chunk.Width, chunk.Height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        var bitmap = new WriteableBitmap(
+            new PixelSize(chunk.Width, chunk.Height),
+            new Vector(96, 96),
+            PixelFormat.Bgra8888,
+            AlphaFormat.Opaque);
+
         using (var buf = bitmap.Lock())
         {
             unsafe
