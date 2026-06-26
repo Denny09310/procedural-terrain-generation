@@ -17,7 +17,7 @@ public enum TerrainBiome
     // Arid / Hot
     Desert,
     Savanna,
-    DryGrassland,
+    Steppa,
 
     // Temperate
     Grassland,

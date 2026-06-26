@@ -22,6 +22,14 @@ public sealed class TerrainGeneratorBuilder
         builder.Services.AddSingleton<INoiseSource, PerlinNoise>();
         builder.Services.AddSingleton<ITerrainRandomizer, SeededRandomizer>();
 
+        builder.Services.AddSingleton<ElevationTransformer>();
+        builder.Services.AddSingleton<MoistureTransformer>();
+        builder.Services.AddSingleton<TemperatureTransformer>();
+        builder.Services.AddSingleton<ClassifierTransformer>();
+        builder.Services.AddSingleton<StructureTransformer>();
+
+        builder.Services.AddSingleton<IStructureRule, VillageRule>();
+
         return builder;
     }
 

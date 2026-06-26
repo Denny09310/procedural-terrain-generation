@@ -7,27 +7,52 @@ using Core.Models;
 
 namespace Viewer.Components.Shared;
 
+/// <summary>Snapshot of the canvas viewport passed to every ViewportChanged callback.</summary>
+public readonly record struct ViewportInfo(
+    double Width,
+    double Height,
+    double OffsetX,
+    double OffsetY,
+    double Zoom,
+    int CellSize);
+
 public sealed class TerrainCanvas : Control
 {
-    private readonly Dictionary<(int X, int Y), WriteableBitmap> _cache = [];
-    private readonly DispatcherTimer _debounce;
+    private readonly record struct ChunkRenderData(
+        int ChunkX,
+        int ChunkY,
+        WriteableBitmap Bitmap);
 
-    private Point _start;
+    private readonly List<ChunkRenderData> _renderList = [];
+
+    // ------------------------------------------------------------------
+    // Panning / zoom state
+    // ------------------------------------------------------------------
+
+    private Point _dragStart;
     private bool _panning;
-    private double _lastUpdateX;
-    private double _lastUpdateY;
+    private double _checkpointX;
+    private double _checkpointY;
 
     public double OffsetX { get; private set; }
     public double OffsetY { get; private set; }
     public double Zoom { get; private set; } = 1.0;
 
-    public event Action<double, double, double, double, double, int>? ViewportChanged;
+    // ------------------------------------------------------------------
+    // Debounce timer — fires a trailing-edge viewport update after panning stops
+    // ------------------------------------------------------------------
+
+    private readonly DispatcherTimer _debounce;
+
+    // ------------------------------------------------------------------
+    // Styled properties
+    // ------------------------------------------------------------------
 
     public static readonly StyledProperty<IEnumerable<TerrainGrid>?> ChunksProperty =
-      AvaloniaProperty.Register<TerrainCanvas, IEnumerable<TerrainGrid>?>(nameof(Chunks));
+        AvaloniaProperty.Register<TerrainCanvas, IEnumerable<TerrainGrid>?>(nameof(Chunks));
 
     public static readonly StyledProperty<int> CellSizeProperty =
-      AvaloniaProperty.Register<TerrainCanvas, int>(nameof(CellSize), defaultValue: 2);
+        AvaloniaProperty.Register<TerrainCanvas, int>(nameof(CellSize), defaultValue: 2);
 
     public IEnumerable<TerrainGrid>? Chunks
     {
@@ -41,79 +66,157 @@ public sealed class TerrainCanvas : Control
         set => SetValue(CellSizeProperty, value);
     }
 
+    // ------------------------------------------------------------------
+    // Events
+    // ------------------------------------------------------------------
+
+    public event Action<ViewportInfo>? ViewportChanged;
+
+    // ------------------------------------------------------------------
+    // Ctor
+    // ------------------------------------------------------------------
+
     public TerrainCanvas()
     {
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.None);
 
         _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
-        _debounce.Tick += (s, e) =>
+        _debounce.Tick += (_, _) =>
         {
             _debounce.Stop();
-
-            _lastUpdateX = OffsetX;
-            _lastUpdateY = OffsetY;
-
-            ViewportChanged?.Invoke(Bounds.Width, Bounds.Height, OffsetX, OffsetY, Zoom, CellSize);
+            _checkpointX = OffsetX;
+            _checkpointY = OffsetY;
+            FireViewportChanged();
         };
     }
 
-    private void QueueViewportUpdate()
-    {
-        _debounce.Stop();
-        _debounce.Start();
-    }
+    // ------------------------------------------------------------------
+    // Public helper — called by the toolbar "reset view" button
+    // ------------------------------------------------------------------
 
-    protected override void OnSizeChanged(SizeChangedEventArgs e)
+    public void ResetViewport()
     {
-        base.OnSizeChanged(e);
+        OffsetX = 0;
+        OffsetY = 0;
+        Zoom = 1.0;
+        InvalidateVisual();
         QueueViewportUpdate();
     }
 
-    protected override void OnPointerMoved(PointerEventArgs e)
+    // ------------------------------------------------------------------
+    // Property change — Chunks subscription and CellSize
+    // ------------------------------------------------------------------
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
-        base.OnPointerMoved(e);
-        if (_panning)
+        base.OnPropertyChanged(change);
+
+        if (change.Property == ChunksProperty)
         {
-            var currentPos = e.GetPosition(this);
-            var delta = _start - currentPos;
+            if (change.OldValue is INotifyCollectionChanged oldCol)
+                oldCol.CollectionChanged -= OnChunksCollectionChanged;
 
-            OffsetX += delta.X / Zoom;
-            OffsetY += delta.Y / Zoom;
-            _start = currentPos;
+            ClearRenderList();
 
-            InvalidateVisual(); // Repaint loaded chunks at 60+ FPS instantly
+            if (change.NewValue is INotifyCollectionChanged newCol)
+                newCol.CollectionChanged += OnChunksCollectionChanged;
 
-            // Calculate the physical distance moved from our last data request checkpoint
-            double distanceMoved = Math.Sqrt(Math.Pow(OffsetX - _lastUpdateX, 2) + Math.Pow(OffsetY - _lastUpdateY, 2));
-
-            if (distanceMoved > 64) // Checkpoint reached: stream new chunks mid-drag
+            // Eagerly bake any chunks already in the new collection
+            if (change.NewValue is IEnumerable<TerrainGrid> existing)
             {
-                _lastUpdateX = OffsetX;
-                _lastUpdateY = OffsetY;
-                _debounce.Stop(); // Reset trailing edge timer
-
-                ViewportChanged?.Invoke(Bounds.Width, Bounds.Height, OffsetX, OffsetY, Zoom, CellSize);
+                foreach (var chunk in existing)
+                    _renderList.Add(Bake(chunk));
             }
-            else
+
+            InvalidateVisual();
+        }
+        else if (change.Property == CellSizeProperty)
+        {
+            // Pixel density changed: repaint immediately and re-query which
+            // chunks are needed for the new coverage.
+            InvalidateVisual();
+            QueueViewportUpdate();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Collection changed — keeps _renderList in sync
+    // ------------------------------------------------------------------
+
+    private void OnChunksCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add when e.NewItems is not null:
+                foreach (TerrainGrid chunk in e.NewItems)
+                    _renderList.Add(Bake(chunk));
+                break;
+
+            case NotifyCollectionChangedAction.Remove when e.OldItems is not null:
+                foreach (TerrainGrid removed in e.OldItems)
+                {
+                    int idx = _renderList.FindIndex(
+                        r => r.ChunkX == removed.ChunkX && r.ChunkY == removed.ChunkY);
+
+                    if (idx >= 0)
+                    {
+                        _renderList[idx].Bitmap.Dispose();
+                        _renderList.RemoveAt(idx);
+                    }
+                }
+                break;
+
+            case NotifyCollectionChangedAction.Reset:
+                ClearRenderList();
+                break;
+        }
+
+        InvalidateVisual();
+    }
+
+    // ------------------------------------------------------------------
+    // Render — purely reads _renderList, no allocations
+    // ------------------------------------------------------------------
+
+    public override void Render(DrawingContext context)
+    {
+        base.Render(context);
+        if (_renderList.Count == 0) return;
+
+        var cameraTransform =
+            Matrix.CreateTranslation(new Vector(-OffsetX, -OffsetY)) *
+            Matrix.CreateScale(new Vector(Zoom, Zoom));
+
+        using (context.PushTransform(cameraTransform))
+        {
+            double viewW = Bounds.Width / Zoom;
+            double viewH = Bounds.Height / Zoom;
+            var viewport = new Rect(OffsetX, OffsetY, viewW, viewH);
+
+            foreach (var entry in _renderList)
             {
-                // If the user drags slowly or stops, let the trailing-edge timer catch up
-                _debounce.Stop();
-                _debounce.Start();
+                int pixelSize = entry.Bitmap.PixelSize.Width * CellSize;
+                var dest = new Rect(
+                    entry.ChunkX * pixelSize,
+                    entry.ChunkY * pixelSize,
+                    pixelSize,
+                    pixelSize);
+
+                if (!viewport.Intersects(dest)) continue;
+
+                var src = new Rect(0, 0, entry.Bitmap.PixelSize.Width, entry.Bitmap.PixelSize.Height);
+                context.DrawImage(entry.Bitmap, src, dest);
             }
         }
     }
 
-    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    // ------------------------------------------------------------------
+    // Input — pan and zoom
+    // ------------------------------------------------------------------
+
+    protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
-        base.OnPointerWheelChanged(e);
-        double oldZoom = Zoom;
-        Zoom = Math.Clamp(e.Delta.Y > 0 ? oldZoom * 1.15 : oldZoom / 1.15, 0.15, 8.0);
-
-        var pointerPos = e.GetPosition(this);
-        OffsetX = (OffsetX + (pointerPos.X / oldZoom)) - (pointerPos.X / Zoom);
-        OffsetY = (OffsetY + (pointerPos.Y / oldZoom)) - (pointerPos.Y / Zoom);
-
-        InvalidateVisual();
+        base.OnSizeChanged(e);
         QueueViewportUpdate();
     }
 
@@ -122,12 +225,10 @@ public sealed class TerrainCanvas : Control
         base.OnPointerPressed(e);
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            _start = e.GetPosition(this);
+            _dragStart = e.GetPosition(this);
             _panning = true;
-
-            // Establish our base coordinate alignment when the drag begins
-            _lastUpdateX = OffsetX;
-            _lastUpdateY = OffsetY;
+            _checkpointX = OffsetX;
+            _checkpointY = OffsetY;
         }
     }
 
@@ -137,78 +238,83 @@ public sealed class TerrainCanvas : Control
         _panning = false;
     }
 
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    protected override void OnPointerMoved(PointerEventArgs e)
     {
-        base.OnPropertyChanged(change);
-        if (change.Property == ChunksProperty)
+        base.OnPointerMoved(e);
+        if (!_panning) return;
+
+        var pos = e.GetPosition(this);
+        var delta = _dragStart - pos;
+
+        OffsetX += delta.X / Zoom;
+        OffsetY += delta.Y / Zoom;
+        _dragStart = pos;
+
+        InvalidateVisual(); // instant repaint of cached bitmaps at 60+ fps
+
+        double dist = Math.Sqrt(
+            Math.Pow(OffsetX - _checkpointX, 2) +
+            Math.Pow(OffsetY - _checkpointY, 2));
+
+        if (dist > 64) // crossed into a new region: stream chunks mid-drag
         {
-            if (change.OldValue is INotifyCollectionChanged oldNotify)
-                oldNotify.CollectionChanged -= OnChunksCollectionChanged;
-
-            ClearCache();
-
-            if (change.NewValue is INotifyCollectionChanged newNotify)
-                newNotify.CollectionChanged += OnChunksCollectionChanged;
-
-            InvalidateVisual();
+            _checkpointX = OffsetX;
+            _checkpointY = OffsetY;
+            _debounce.Stop();
+            FireViewportChanged();
+        }
+        else
+        {
+            // Slow / stopped drag: trailing-edge timer will catch up
+            _debounce.Stop();
+            _debounce.Start();
         }
     }
 
-    private void OnChunksCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
-        if (e.Action == NotifyCollectionChangedAction.Reset)
-            ClearCache();
-        else if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems != null)
-        {
-            foreach (TerrainGrid oldChunk in e.OldItems)
-            {
-                var key = (oldChunk.ChunkX, oldChunk.ChunkY);
-                if (_cache.TryGetValue(key, out var bitmap))
-                {
-                    bitmap.Dispose();
-                    _cache.Remove(key);
-                }
-            }
-        }
+        base.OnPointerWheelChanged(e);
+
+        double oldZoom = Zoom;
+        Zoom = Math.Clamp(e.Delta.Y > 0 ? oldZoom * 1.15 : oldZoom / 1.15, 0.15, 8.0);
+
+        var ptr = e.GetPosition(this);
+        OffsetX = OffsetX + ptr.X / oldZoom - ptr.X / Zoom;
+        OffsetY = OffsetY + ptr.Y / oldZoom - ptr.Y / Zoom;
+
         InvalidateVisual();
+        QueueViewportUpdate();
     }
 
-    public override void Render(DrawingContext context)
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private void QueueViewportUpdate()
     {
-        base.Render(context);
-        if (Chunks is null) return;
-
-        var cameraTransform = Matrix.CreateTranslation(new Vector(-OffsetX, -OffsetY))
-                            * Matrix.CreateScale(new Vector(Zoom, Zoom));
-
-        using (context.PushTransform(cameraTransform))
-        {
-            // Canvas side culling: Only draw chunks that are actually inside the camera view frame
-            double viewW = Bounds.Width / Zoom;
-            double viewH = Bounds.Height / Zoom;
-            var viewportRect = new Rect(OffsetX, OffsetY, viewW, viewH);
-
-            foreach (var chunk in Chunks.ToList())
-            {
-                int chunkPixelSize = chunk.Width * CellSize;
-                var destRect = new Rect(chunk.ChunkX * chunkPixelSize, chunk.ChunkY * chunkPixelSize, chunkPixelSize, chunkPixelSize);
-
-                if (!viewportRect.Intersects(destRect))
-                    continue; // Skip rendering if it's completely hidden off-screen
-
-                var key = (chunk.ChunkX, chunk.ChunkY);
-                if (!_cache.TryGetValue(key, out var bitmap))
-                {
-                    bitmap = CreateChunkBitmap(chunk);
-                    _cache[key] = bitmap;
-                }
-
-                context.DrawImage(bitmap, new Rect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height), destRect);
-            }
-        }
+        _debounce.Stop();
+        _debounce.Start();
     }
 
-    private static WriteableBitmap CreateChunkBitmap(TerrainGrid chunk)
+    private void FireViewportChanged() =>
+        ViewportChanged?.Invoke(new ViewportInfo(
+            Bounds.Width, Bounds.Height,
+            OffsetX, OffsetY,
+            Zoom,
+            CellSize));
+
+    private void ClearRenderList()
+    {
+        foreach (var entry in _renderList)
+            entry.Bitmap.Dispose();
+        _renderList.Clear();
+    }
+
+    // ------------------------------------------------------------------
+    // Bitmap creation — called eagerly on chunk Add, not in Render()
+    // ------------------------------------------------------------------
+
+    private static ChunkRenderData Bake(TerrainGrid chunk)
     {
         var bitmap = new WriteableBitmap(
             new PixelSize(chunk.Width, chunk.Height),
@@ -222,22 +328,16 @@ public sealed class TerrainCanvas : Control
             {
                 uint* ptr = (uint*)buf.Address;
                 int stride = buf.RowBytes / 4;
+
                 foreach (var cell in chunk)
-                {
-                    ptr[(cell.Y * stride) + cell.X] = GetColor(cell.Biome);
-                }
+                    ptr[cell.Y * stride + cell.X] = BiomeColor(cell.Biome);
             }
         }
-        return bitmap;
+
+        return new ChunkRenderData(chunk.ChunkX, chunk.ChunkY, bitmap);
     }
 
-    private void ClearCache()
-    {
-        foreach (var bmp in _cache.Values) bmp.Dispose();
-        _cache.Clear();
-    }
-
-    private static uint GetColor(TerrainBiome biome) => biome switch
+    private static uint BiomeColor(TerrainBiome biome) => biome switch
     {
         TerrainBiome.DeepOcean => 0xFF002060,
         TerrainBiome.Ocean => 0xFF1565C0,
@@ -245,7 +345,7 @@ public sealed class TerrainCanvas : Control
         TerrainBiome.River => 0xFF42A5F5,
         TerrainBiome.Beach => 0xFFF4E19C,
         TerrainBiome.Desert => 0xFFE0C068,
-        TerrainBiome.DryGrassland => 0xFFB8B050,
+        TerrainBiome.Steppa => 0xFFB8B050,
         TerrainBiome.Savanna => 0xFFA5C85A,
         TerrainBiome.Grassland => 0xFF4CAF50,
         TerrainBiome.Shrubland => 0xFF5E8C4A,
@@ -266,6 +366,6 @@ public sealed class TerrainCanvas : Control
         TerrainBiome.Swamp => 0xFF355E3B,
         TerrainBiome.Mangrove => 0xFF2F6F3E,
         TerrainBiome.Volcanic => 0xFF5A2A00,
-        _ => 0xFFFF00FF
+        _ => 0xFFFF00FF,
     };
 }

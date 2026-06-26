@@ -1,8 +1,8 @@
 using Core.Models;
 
-namespace Viewer.Helpers;
+namespace Core.Services;
 
-internal static class Classification
+public sealed class ClassifierTransformer()
 {
     private const float DeepOcean = 0.20f;
     private const float Ocean = 0.30f;
@@ -16,51 +16,51 @@ internal static class Classification
 
     private static readonly TerrainBiome[,] Climate =
     {
-    // Polar
-    {
-        TerrainBiome.Tundra,
-        TerrainBiome.Tundra,
-        TerrainBiome.Tundra,
-        TerrainBiome.Snow,
-        TerrainBiome.Glacier
-    },
+        // Polar
+        {
+            TerrainBiome.Tundra,
+            TerrainBiome.Tundra,
+            TerrainBiome.Tundra,
+            TerrainBiome.Snow,
+            TerrainBiome.Glacier
+        },
 
-    // Cold
-    {
-        TerrainBiome.DryGrassland,
-        TerrainBiome.Grassland,
-        TerrainBiome.BorealForest,
-        TerrainBiome.Taiga,
-        TerrainBiome.Taiga
-    },
+        // Cold
+        {
+            TerrainBiome.Steppa,
+            TerrainBiome.Grassland,
+            TerrainBiome.BorealForest,
+            TerrainBiome.Taiga,
+            TerrainBiome.Taiga
+        },
 
-    // Temperate
-    {
-        TerrainBiome.Shrubland,
-        TerrainBiome.Grassland,
-        TerrainBiome.TemperateForest,
-        TerrainBiome.TemperateRainforest,
-        TerrainBiome.TemperateRainforest
-    },
+        // Temperate
+        {
+            TerrainBiome.Shrubland,
+            TerrainBiome.Grassland,
+            TerrainBiome.TemperateForest,
+            TerrainBiome.TemperateRainforest,
+            TerrainBiome.TemperateRainforest
+        },
 
-    // Warm
-    {
-        TerrainBiome.Desert,
-        TerrainBiome.DryGrassland,
-        TerrainBiome.Savanna,
-        TerrainBiome.TropicalForest,
-        TerrainBiome.Jungle
-    },
+        // Warm
+        {
+            TerrainBiome.Desert,
+            TerrainBiome.Steppa,
+            TerrainBiome.Savanna,
+            TerrainBiome.TropicalForest,
+            TerrainBiome.Jungle
+        },
 
-    // Tropical
-    {
-        TerrainBiome.Desert,
-        TerrainBiome.Savanna,
-        TerrainBiome.TropicalForest,
-        TerrainBiome.Jungle,
-        TerrainBiome.TropicalRainforest
-    }
-};
+        // Tropical
+        {
+            TerrainBiome.Desert,
+            TerrainBiome.Savanna,
+            TerrainBiome.TropicalForest,
+            TerrainBiome.Jungle,
+            TerrainBiome.TropicalRainforest
+        }
+    };
 
     public static TerrainBiome Classify(TerrainCell cell)
     {
@@ -136,6 +136,12 @@ internal static class Classification
         }
 
         return biome;
+    }
+
+    public void Apply(TerrainGrid grid)
+    {
+        foreach (var cell in grid)
+            cell.Biome = Classify(cell);
     }
 
     private static int TemperatureBand(float t)
