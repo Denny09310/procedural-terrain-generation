@@ -36,7 +36,6 @@ public sealed class TerrainCanvas : Control
 
     public double OffsetX { get; private set; }
     public double OffsetY { get; private set; }
-    public double Zoom { get; private set; } = 1.0;
 
     // ------------------------------------------------------------------
     // Debounce timer — fires a trailing-edge viewport update after panning stops
@@ -54,6 +53,9 @@ public sealed class TerrainCanvas : Control
     public static readonly StyledProperty<int> CellSizeProperty =
         AvaloniaProperty.Register<TerrainCanvas, int>(nameof(CellSize), defaultValue: 2);
 
+    public static readonly StyledProperty<double> ZoomProperty =
+        AvaloniaProperty.Register<TerrainCanvas, double>(nameof(Zoom), defaultValue: 1.0);
+
     public IEnumerable<TerrainGrid>? Chunks
     {
         get => GetValue(ChunksProperty);
@@ -64,6 +66,12 @@ public sealed class TerrainCanvas : Control
     {
         get => GetValue(CellSizeProperty);
         set => SetValue(CellSizeProperty, value);
+    }
+
+    public double Zoom
+    {
+        get => GetValue(ZoomProperty);
+        set => SetValue(ZoomProperty, value);
     }
 
     // ------------------------------------------------------------------
@@ -98,7 +106,7 @@ public sealed class TerrainCanvas : Control
     {
         OffsetX = 0;
         OffsetY = 0;
-        Zoom = 1.0;
+        Zoom = ZoomProperty.GetDefaultValue(this);
         InvalidateVisual();
         QueueViewportUpdate();
     }

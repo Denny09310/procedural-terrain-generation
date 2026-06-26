@@ -17,6 +17,7 @@ public partial class TerrainViewer(Func<int, TerrainGenerator> factory)
         canvas = new TerrainCanvas()
             .Chunks(state, x => x.Chunks)
             .CellSize(state, x => x.Size)
+            .Zoom(1.5)
             .OnViewportChanged(async info =>
                 await state.UpdateViewportAsync(info));
 
