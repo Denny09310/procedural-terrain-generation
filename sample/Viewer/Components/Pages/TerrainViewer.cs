@@ -44,6 +44,14 @@ public partial class TerrainViewer(Func<int, TerrainGenerator> factory)
                         .Content("Regenerate")
                         .OnClick(async (_) => await state.RegenerateAsync()),
 
+                    new Button()
+                        .Content("Randomize")
+                        .OnClick(async (_) =>
+                        {
+                            state.Seed = Random.Shared.Next(int.MinValue, int.MaxValue);
+                            await state.RegenerateAsync();
+                        }),
+
                     // ── Separator ─────────────────────────────────────────
                     new Border()
                         .Width(1)
@@ -87,9 +95,9 @@ public partial class TerrainViewer(Func<int, TerrainGenerator> factory)
     // State
     // -----------------------------------------------------------------------
 
-    public partial class State(Func<int, TerrainGenerator> generatorFactory) : ObservableObject
+    public partial class State(Func<int, TerrainGenerator> factory) : ObservableObject
     {
-        private TerrainGenerator _generator = generatorFactory(12345);
+        private TerrainGenerator _generator = factory(0);
 
         private readonly HashSet<(int X, int Y)> _loaded = [];
         public ObservableCollection<TerrainGrid> Chunks { get; } = [];
@@ -98,7 +106,7 @@ public partial class TerrainViewer(Func<int, TerrainGenerator> factory)
 
         // ── Observable properties bound to the toolbar ──────────────────────
 
-        [ObservableProperty] public partial int Seed { get; set; } = 12345;
+        [ObservableProperty] public partial int Seed { get; set; } = 0;
         [ObservableProperty] public partial int Size { get; set; } = 2;
 
         // Cached so we can re-fire a viewport update after regeneration
@@ -108,7 +116,7 @@ public partial class TerrainViewer(Func<int, TerrainGenerator> factory)
 
         public async Task RegenerateAsync()
         {
-            _generator = generatorFactory(Seed);
+            _generator = factory(Seed);
             await InitializeAsync();
 
             // Re-load the same viewport with the new generator

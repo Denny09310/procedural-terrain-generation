@@ -21,16 +21,16 @@ AppBuilder.Configure<Application>()
     .UsePlatformDetect()
     .AfterSetup(b => b.Instance?.Styles.Add(new FluentTheme()))
     .UseServiceProvider(provider)
-    .UseComponentControlFactory(
-        type => (Control)ActivatorUtilities.CreateInstance(provider, type))
+    .UseComponentControlFactory(type => (Control)ActivatorUtilities.CreateInstance(provider, type))
     .UseViewInitializationStrategy(ViewInitializationStrategy.Lazy)
     .UseHotReload()
     .SetupWithLifetime(lifetime);
 
 lifetime.MainWindow = new Window()
     .Title("Avalonia Procedural Terrain Viewer")
-    .Width(1024)
-    .Height(700)
+    .Width(1920)
+    .Height(1080)
+    .WindowStartupLocation(WindowStartupLocation.CenterScreen)
     .Content(ViewFactory.Create<TerrainViewer>());
 
 lifetime.Start(args);

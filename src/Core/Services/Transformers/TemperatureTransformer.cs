@@ -22,10 +22,13 @@ public sealed class TemperatureTransformer(INoiseSource noise)
                 persistence: 0.5f,
                 lacunarity: 2f);
 
-            climate *= 0.5f + 0.5f;
+            climate = climate * 0.5f + 0.5f;
 
-            float lapse = 1f - MathF.Pow(MathF.Max(0f, cell.Elevation - 0.3f), 1.5f);
-            cell.Temperature = Math.Clamp(climate * lapse, 0f, 1f);
+            float altitude = MathF.Max(0f, cell.Elevation - 0.35f) / 0.65f;
+
+            float cooling = altitude * altitude * 0.45f;
+
+            cell.Temperature = Math.Clamp(climate - cooling, 0f, 1f);
         }
     }
 }
