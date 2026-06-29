@@ -6,7 +6,7 @@ var builder = TerrainGeneratorBuilder.Create();
 
 builder.Services.AddSingleton(_ => new TerrainConfiguration
 {
-    ChunkSize = 128
+    ChunkSize = 32
 });
 
 builder.AddTransformer((TerrainGrid grid, TerrainContext ctx, ElevationTransformer elevation)
@@ -21,7 +21,19 @@ builder.AddTransformer((TerrainGrid grid, TerrainContext ctx, TemperatureTransfo
 builder.AddTransformer((TerrainGrid grid, ClassifierTransformer classifier)
     => classifier.Apply(grid));
 
+builder.AddTransformer((TerrainWorld world, TerrainGrid grid, TerrainContext ctx, StructureTransformer structure)
+    => structure.Apply(world, grid, ctx));
+
 var generator = builder.Build();
 
-var chunk = await generator.GenerateAsync(0, 0);
+var world = generator.CreateWorld();
+
+for (int y = 0; y < 5; y++)
+{
+    for (int x = 0; x < 5; x++)
+    {
+        await world.GenerateChunkAsync(x, y);
+    }
+}
+
 System.Console.WriteLine();

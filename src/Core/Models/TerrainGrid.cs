@@ -24,6 +24,8 @@ public sealed class TerrainGrid : IEnumerable<TerrainCell>
                 _cells[x, y] = new TerrainCell { X = x, Y = y };
     }
 
+    public TerrainCell this[int x, int y] => _cells[x, y];
+
     /// <summary>Converts a local X coordinate into an absolute world-space X coordinate.</summary>
     public int ToWorldX(int localX) => X * Width + localX;
 

@@ -1,6 +1,6 @@
 namespace Core.Models;
 
-public enum TerrainBiome
+public enum BiomeType
 {
     // Water
     Ocean,

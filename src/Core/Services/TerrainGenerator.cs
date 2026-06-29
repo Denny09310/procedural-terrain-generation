@@ -3,22 +3,22 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Services;
 
+/// <summary>
+/// Runs the transformer pipeline to produce individual terrain chunks.
+/// Call <see cref="CreateWorld"/> to obtain a <see cref="TerrainWorld"/> that caches
+/// generated chunks and manages structures — the generator itself holds no world state.
+/// </summary>
 public sealed class TerrainGenerator(
     IServiceProvider provider,
     Func<TerrainContext, ValueTask>[] invokers)
 {
-    public Dictionary<TerrainCoordinate, TerrainGrid> Chunks { get; } = [];
-
     /// <summary>
-    /// Generates a single chunk at the given chunk-space coordinates.
+    /// Creates a new, empty <see cref="TerrainWorld"/> backed by this generator's pipeline.
     /// </summary>
-    public async ValueTask<TerrainGrid> GenerateAsync(int chunkX, int chunkY)
+    public TerrainWorld CreateWorld() => new(GenerateChunkCoreAsync);
+
+    private async ValueTask<TerrainGrid> GenerateChunkCoreAsync(TerrainWorld world, int chunkX, int chunkY)
     {
-        var key = new TerrainCoordinate(chunkX, chunkY);
-
-        if (Chunks.TryGetValue(key, out var existing))
-            return existing;
-
         var config = provider.GetRequiredService<TerrainConfiguration>();
         var size = config.ChunkSize;
 
@@ -28,13 +28,7 @@ public sealed class TerrainGenerator(
             Y = chunkY,
         };
 
-        Chunks.Add(key, grid);
-
-        var context = new TerrainContext(
-            config,
-            grid,
-            chunkX,
-            chunkY);
+        var context = new TerrainContext(config, world, grid, chunkX, chunkY);
 
         foreach (var invoker in invokers)
             await invoker(context);

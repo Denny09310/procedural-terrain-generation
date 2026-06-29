@@ -5,9 +5,9 @@ public sealed class TerrainCell
     public int X { get; init; }
     public int Y { get; init; }
 
-    public float Elevation    { get; set; }
-    public float Moisture     { get; set; }
-    public float Temperature  { get; set; }
+    public float Elevation { get; set; }
+    public float Moisture { get; set; }
+    public float Temperature { get; set; }
 
-    public TerrainBiome   Biome     { get; set; } = TerrainBiome.Unknown;
+    public BiomeType Biome { get; set; } = BiomeType.Unknown;
 }

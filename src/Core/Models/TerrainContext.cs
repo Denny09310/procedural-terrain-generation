@@ -2,6 +2,7 @@ namespace Core.Models;
 
 public sealed record TerrainContext(
     TerrainConfiguration Configuration,
+    TerrainWorld World,
     TerrainGrid Grid,
     int ChunkX,
     int ChunkY)

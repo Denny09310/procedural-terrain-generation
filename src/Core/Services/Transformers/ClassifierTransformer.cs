@@ -14,55 +14,55 @@ public sealed class ClassifierTransformer
     private const float Snow = 0.94f;
     private const float Glacier = 0.98f;
 
-    private static readonly TerrainBiome[,] Climate =
+    private static readonly BiomeType[,] Climate =
     {
         // Polar
         {
-            TerrainBiome.Tundra,
-            TerrainBiome.Tundra,
-            TerrainBiome.Tundra,
-            TerrainBiome.Snow,
-            TerrainBiome.Glacier
+            BiomeType.Tundra,
+            BiomeType.Tundra,
+            BiomeType.Tundra,
+            BiomeType.Snow,
+            BiomeType.Glacier
         },
 
         // Cold
         {
-            TerrainBiome.Steppe,
-            TerrainBiome.Grassland,
-            TerrainBiome.BorealForest,
-            TerrainBiome.Taiga,
-            TerrainBiome.Taiga
+            BiomeType.Steppe,
+            BiomeType.Grassland,
+            BiomeType.BorealForest,
+            BiomeType.Taiga,
+            BiomeType.Taiga
         },
 
         // Temperate
         {
-            TerrainBiome.Shrubland,
-            TerrainBiome.Grassland,
-            TerrainBiome.TemperateForest,
-            TerrainBiome.TemperateRainforest,
-            TerrainBiome.TemperateRainforest
+            BiomeType.Shrubland,
+            BiomeType.Grassland,
+            BiomeType.TemperateForest,
+            BiomeType.TemperateRainforest,
+            BiomeType.TemperateRainforest
         },
 
         // Warm
         {
-            TerrainBiome.Desert,
-            TerrainBiome.Steppe,
-            TerrainBiome.Savanna,
-            TerrainBiome.TropicalForest,
-            TerrainBiome.Jungle
+            BiomeType.Desert,
+            BiomeType.Steppe,
+            BiomeType.Savanna,
+            BiomeType.TropicalForest,
+            BiomeType.Jungle
         },
 
         // Tropical
         {
-            TerrainBiome.Desert,
-            TerrainBiome.Savanna,
-            TerrainBiome.TropicalForest,
-            TerrainBiome.Jungle,
-            TerrainBiome.TropicalRainforest
+            BiomeType.Desert,
+            BiomeType.Savanna,
+            BiomeType.TropicalForest,
+            BiomeType.Jungle,
+            BiomeType.TropicalRainforest
         }
     };
 
-    public static TerrainBiome Classify(TerrainCell cell)
+    public static BiomeType Classify(TerrainCell cell)
     {
         float elevation = cell.Elevation;
         float temperature = cell.Temperature;
@@ -72,24 +72,24 @@ public sealed class ClassifierTransformer
         // Water
         // ----------------------------
 
-        if (elevation < DeepOcean) return TerrainBiome.DeepOcean;
-        if (elevation < Ocean) return TerrainBiome.Ocean;
-        if (elevation < ShallowWater) return TerrainBiome.ShallowWater;
-        if (elevation < Beach) return TerrainBiome.Beach;
+        if (elevation < DeepOcean) return BiomeType.DeepOcean;
+        if (elevation < Ocean) return BiomeType.Ocean;
+        if (elevation < ShallowWater) return BiomeType.ShallowWater;
+        if (elevation < Beach) return BiomeType.Beach;
 
         // ----------------------------
         // Mountains
         // ----------------------------
 
-        if (elevation >= Glacier) return TerrainBiome.Glacier;
-        if (elevation >= Snow) return TerrainBiome.Snow;
-        if (elevation >= Mountain) return TerrainBiome.Mountain;
+        if (elevation >= Glacier) return BiomeType.Glacier;
+        if (elevation >= Snow) return BiomeType.Snow;
+        if (elevation >= Mountain) return BiomeType.Mountain;
 
         if (elevation >= Alpine)
         {
             return temperature < 0.30f
-                ? TerrainBiome.Alpine
-                : TerrainBiome.SubAlpine;
+                ? BiomeType.Alpine
+                : BiomeType.SubAlpine;
         }
 
         // ----------------------------
@@ -99,7 +99,7 @@ public sealed class ClassifierTransformer
         int t = TemperatureBand(temperature);
         int m = MoistureBand(moisture);
 
-        TerrainBiome biome = Climate[t, m];
+        BiomeType biome = Climate[t, m];
 
         // ----------------------------
         // Local overrides
@@ -109,13 +109,13 @@ public sealed class ClassifierTransformer
         if (elevation < 0.45f && moisture > 0.90f)
         {
             biome = temperature > 0.75f
-                ? TerrainBiome.Swamp
-                : TerrainBiome.Wetland;
+                ? BiomeType.Swamp
+                : BiomeType.Wetland;
         }
 
         // Tropical coastal wetlands.
         if (elevation < 0.40f && moisture > 0.85f && temperature > 0.80f)
-            biome = TerrainBiome.Mangrove;
+            biome = BiomeType.Mangrove;
 
         return biome;
     }

@@ -26,8 +26,11 @@ internal sealed class TerrainTransformerBinder(IServiceProvider services)
         };
     }
 
-    private Func<TerrainContext, object?> ResolveParameter(ParameterInfo p)
+    private Func<TerrainContext, dynamic> ResolveParameter(ParameterInfo p)
     {
+        if (p.ParameterType == typeof(TerrainWorld))
+            return ctx => ctx.World;
+
         if (p.ParameterType == typeof(TerrainGrid))
             return ctx => ctx.Grid;
 

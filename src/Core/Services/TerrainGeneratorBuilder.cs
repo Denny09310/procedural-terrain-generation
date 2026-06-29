@@ -16,13 +16,17 @@ public sealed class TerrainGeneratorBuilder
     {
         var builder = new TerrainGeneratorBuilder();
 
-        builder.Services.AddSingleton<ITerrainNoise, PerlinNoise>();
-        builder.Services.AddSingleton<ITerrainRandomizer, SeededRandomizer>();
+        builder.Services.AddTransient<ITerrainNoise, PerlinNoise>();
+        builder.Services.AddTransient<ITerrainRandomizer, SeededRandomizer>();
 
         builder.Services.AddSingleton<ElevationTransformer>();
         builder.Services.AddSingleton<MoistureTransformer>();
         builder.Services.AddSingleton<TemperatureTransformer>();
         builder.Services.AddSingleton<ClassifierTransformer>();
+        builder.Services.AddSingleton<StructureTransformer>();
+
+        builder.Services.AddSingleton<IStructureRule, VillageRule>();
+        builder.Services.AddSingleton<IStructureRule, DungeonRule>();
 
         return builder;
     }
