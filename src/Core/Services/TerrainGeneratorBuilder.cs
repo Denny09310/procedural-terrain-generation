@@ -6,12 +6,9 @@ namespace Core.Services;
 
 public sealed class TerrainGeneratorBuilder
 {
-    private readonly ICollection<TerrainTransformerHandler> _handlers = [];
+    private readonly ICollection<TerrainTransformer> _handlers = [];
 
-    private TerrainGeneratorBuilder()
-    {
-
-    }
+    private TerrainGeneratorBuilder() { }
 
     public ServiceCollection Services { get; } = new();
 
@@ -19,24 +16,22 @@ public sealed class TerrainGeneratorBuilder
     {
         var builder = new TerrainGeneratorBuilder();
 
-        builder.Services.AddSingleton<INoiseSource, PerlinNoise>();
+        builder.Services.AddSingleton<ITerrainNoise, PerlinNoise>();
         builder.Services.AddSingleton<ITerrainRandomizer, SeededRandomizer>();
 
         builder.Services.AddSingleton<ElevationTransformer>();
         builder.Services.AddSingleton<MoistureTransformer>();
         builder.Services.AddSingleton<TemperatureTransformer>();
         builder.Services.AddSingleton<ClassifierTransformer>();
-        builder.Services.AddSingleton<StructureTransformer>();
-
-        builder.Services.AddSingleton<IStructureRule, VillageRule>();
 
         return builder;
     }
 
-    public TerrainGeneratorBuilder AddTransfomer<T>(T handler)
+    /// <summary>Adds a transformer delegate to the pipeline.</summary>
+    public TerrainGeneratorBuilder AddTransformer<T>(T handler)
         where T : Delegate
     {
-        _handlers.Add(TerrainTransformerHandler.Create(handler));
+        _handlers.Add(TerrainTransformer.Create(handler));
         return this;
     }
 

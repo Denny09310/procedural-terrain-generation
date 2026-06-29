@@ -3,12 +3,14 @@ using Core.Models;
 
 namespace Core.Services;
 
-public sealed class TemperatureTransformer(INoiseSource noise)
+public sealed class TemperatureTransformer(ITerrainNoise noise)
 {
     public void Apply(TerrainGrid grid, TerrainContext ctx)
     {
-        float invW = 1f / ctx.Config.WorldWidth;
-        float invH = 1f / ctx.Config.WorldHeight;
+        int scale = ctx.Configuration.Noise.Scale;
+
+        float invW = 1f / scale;
+        float invH = 1f / scale;
 
         foreach (var cell in grid)
         {

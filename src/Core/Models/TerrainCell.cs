@@ -10,5 +10,4 @@ public sealed class TerrainCell
     public float Temperature  { get; set; }
 
     public TerrainBiome   Biome     { get; set; } = TerrainBiome.Unknown;
-    public StructureType  Structure { get; set; } = StructureType.None;
 }

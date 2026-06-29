@@ -9,8 +9,9 @@ public sealed class TerrainGrid : IEnumerable<TerrainCell>
     public int Width { get; }
     public int Height { get; }
 
-    public int ChunkX { get; set; }
-    public int ChunkY { get; set; }
+    public int X { get; init; }
+
+    public int Y { get; init; }
 
     public TerrainGrid(int width, int height)
     {
@@ -23,7 +24,11 @@ public sealed class TerrainGrid : IEnumerable<TerrainCell>
                 _cells[x, y] = new TerrainCell { X = x, Y = y };
     }
 
-    public TerrainCell this[int x, int y] => _cells[x, y];
+    /// <summary>Converts a local X coordinate into an absolute world-space X coordinate.</summary>
+    public int ToWorldX(int localX) => X * Width + localX;
+
+    /// <summary>Converts a local Y coordinate into an absolute world-space Y coordinate.</summary>
+    public int ToWorldY(int localY) => Y * Height + localY;
 
     public IEnumerator<TerrainCell> GetEnumerator()
     {

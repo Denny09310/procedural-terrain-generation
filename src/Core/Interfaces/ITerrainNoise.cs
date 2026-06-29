@@ -3,18 +3,18 @@ namespace Core.Interfaces;
 /// <summary>
 /// Samples 2D noise. Values are in the range [-1, 1].
 /// </summary>
-public interface INoiseSource
+public interface ITerrainNoise
 {
     float Sample(float x, float y);
 }
 
-public static class NoiseSourceExtensions
+public static class TerrainNoiseExtensions
 {
     /// <summary>
     /// Fractal Brownian Motion — layers multiple octaves for natural-looking terrain.
     /// </summary>
     public static float SampleFractal(
-        this INoiseSource noise,
+        this ITerrainNoise noise,
         float x,
         float y,
         int octaves = 4,

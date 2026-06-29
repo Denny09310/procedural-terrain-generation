@@ -2,7 +2,7 @@ using Core.Models;
 
 namespace Core.Services;
 
-public sealed class ClassifierTransformer()
+public sealed class ClassifierTransformer
 {
     private const float DeepOcean = 0.20f;
     private const float Ocean = 0.30f;
@@ -27,7 +27,7 @@ public sealed class ClassifierTransformer()
 
         // Cold
         {
-            TerrainBiome.Steppa,
+            TerrainBiome.Steppe,
             TerrainBiome.Grassland,
             TerrainBiome.BorealForest,
             TerrainBiome.Taiga,
@@ -46,7 +46,7 @@ public sealed class ClassifierTransformer()
         // Warm
         {
             TerrainBiome.Desert,
-            TerrainBiome.Steppa,
+            TerrainBiome.Steppe,
             TerrainBiome.Savanna,
             TerrainBiome.TropicalForest,
             TerrainBiome.Jungle
@@ -72,41 +72,28 @@ public sealed class ClassifierTransformer()
         // Water
         // ----------------------------
 
-        if (elevation < DeepOcean)
-            return TerrainBiome.DeepOcean;
-
-        if (elevation < Ocean)
-            return TerrainBiome.Ocean;
-
-        if (elevation < ShallowWater)
-            return TerrainBiome.ShallowWater;
-
-        if (elevation < Beach)
-            return TerrainBiome.Beach;
+        if (elevation < DeepOcean) return TerrainBiome.DeepOcean;
+        if (elevation < Ocean) return TerrainBiome.Ocean;
+        if (elevation < ShallowWater) return TerrainBiome.ShallowWater;
+        if (elevation < Beach) return TerrainBiome.Beach;
 
         // ----------------------------
         // Mountains
         // ----------------------------
 
-        if (elevation >= Glacier)
-            return TerrainBiome.Glacier;
-
-        if (elevation >= Snow)
-            return TerrainBiome.Snow;
-
-        if (elevation >= Mountain)
-            return TerrainBiome.Mountain;
+        if (elevation >= Glacier) return TerrainBiome.Glacier;
+        if (elevation >= Snow) return TerrainBiome.Snow;
+        if (elevation >= Mountain) return TerrainBiome.Mountain;
 
         if (elevation >= Alpine)
         {
-            if (temperature < 0.30f)
-                return TerrainBiome.Alpine;
-
-            return TerrainBiome.SubAlpine;
+            return temperature < 0.30f
+                ? TerrainBiome.Alpine
+                : TerrainBiome.SubAlpine;
         }
 
         // ----------------------------
-        // Climate
+        // Climate matrix
         // ----------------------------
 
         int t = TemperatureBand(temperature);
@@ -118,22 +105,17 @@ public sealed class ClassifierTransformer()
         // Local overrides
         // ----------------------------
 
-        // Wet lowlands become wetlands.
+        // Wet lowlands → wetlands.
         if (elevation < 0.45f && moisture > 0.90f)
         {
-            if (temperature > 0.75f)
-                biome = TerrainBiome.Swamp;
-            else
-                biome = TerrainBiome.Wetland;
+            biome = temperature > 0.75f
+                ? TerrainBiome.Swamp
+                : TerrainBiome.Wetland;
         }
 
         // Tropical coastal wetlands.
-        if (elevation < 0.40f &&
-            moisture > 0.85f &&
-            temperature > 0.80f)
-        {
+        if (elevation < 0.40f && moisture > 0.85f && temperature > 0.80f)
             biome = TerrainBiome.Mangrove;
-        }
 
         return biome;
     }

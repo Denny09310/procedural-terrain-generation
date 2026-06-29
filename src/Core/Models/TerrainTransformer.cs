@@ -2,12 +2,12 @@ using System.Reflection;
 
 namespace Core.Models;
 
-public sealed record TerrainTransformerHandler(
+public sealed record TerrainTransformer(
     Delegate Delegate,
     MethodInfo Method,
     ParameterInfo[] Parameters)
 {
-    public static TerrainTransformerHandler Create(Delegate handler)
+    public static TerrainTransformer Create(Delegate handler)
     {
         return new(
             handler,

@@ -1,8 +1,9 @@
 using Core.Interfaces;
+using Core.Models;
 
 namespace Core.Services;
 
-public sealed class PerlinNoise : INoiseSource
+public sealed class PerlinNoise : ITerrainNoise
 {
     private readonly int[] _perm;
 

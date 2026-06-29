@@ -17,7 +17,7 @@ public enum TerrainBiome
     // Arid / Hot
     Desert,
     Savanna,
-    Steppa,
+    Steppe,              // was: Steppa (typo)
 
     // Temperate
     Grassland,

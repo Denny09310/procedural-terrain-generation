@@ -1,8 +1,6 @@
 <Solution>
-  <Folder Name="/sample/">
-    <Project Path="sample/Viewer/Viewer.csproj" />
-  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Core/Core.csproj" />
   </Folder>
+  <Project Path="sample/sample.csproj" />
 </Solution>

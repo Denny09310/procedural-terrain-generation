@@ -3,18 +3,18 @@ using Core.Models;
 
 namespace Core.Services;
 
-public sealed class TerrainTransformerBinder(IServiceProvider services)
+internal sealed class TerrainTransformerBinder(IServiceProvider services)
 {
-    public Func<TerrainContext, ValueTask> Bind(TerrainTransformerHandler handler)
+    public Func<TerrainContext, ValueTask> Bind(TerrainTransformer handler)
     {
-        var resolvers = handler.Parameters
+        var (delegate_, method, parameters) = handler;
+
+        var resolvers = parameters
             .Select(ResolveParameter)
             .ToArray();
 
         return async ctx =>
         {
-            var (delegate_, method, _) = handler;
-
             var args = resolvers.Select(r => r(ctx)).ToArray();
             var result = method.Invoke(delegate_.Target, args);
 
@@ -32,7 +32,7 @@ public sealed class TerrainTransformerBinder(IServiceProvider services)
             return ctx => ctx.Grid;
 
         if (p.ParameterType == typeof(TerrainConfiguration))
-            return ctx => ctx.Config;
+            return ctx => ctx.Configuration;
 
         if (p.ParameterType == typeof(TerrainContext))
             return ctx => ctx;

@@ -1,14 +1,11 @@
-using Core.Services;
-
 namespace Core.Models;
 
-public sealed class TerrainContext(TerrainGrid grid, TerrainConfiguration config, int chunkX, int chunkY)
+public sealed record TerrainContext(
+    TerrainConfiguration Configuration,
+    TerrainGrid Grid,
+    int ChunkX,
+    int ChunkY)
 {
-    public TerrainGrid Grid { get; } = grid;
-    public TerrainConfiguration Config { get; } = config;
-    public int ChunkX { get; } = chunkX;
-    public int ChunkY { get; } = chunkY;
-
-    public int OffsetX => ChunkX * Config.ChunkSize;
-    public int OffsetY => ChunkY * Config.ChunkSize;
+    public int OffsetX => ChunkX * Configuration.ChunkSize;
+    public int OffsetY => ChunkY * Configuration.ChunkSize;
 }
