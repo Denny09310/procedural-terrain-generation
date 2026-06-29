@@ -10,5 +10,9 @@ public sealed class SeededRandomizer(TerrainConfiguration config) : ITerrainRand
     public float NextFloat() => _random.Value!.NextSingle();
     public float NextFloat(float min, float max) => min + _random.Value!.NextSingle() * (max - min);
     public int NextInt(int min, int max) => _random.Value!.Next(min, max);
-    public void SetSeed(int seed) => _random = new(() => new Random(seed));
+    public void SetSeed(int seed)
+    {
+        _random.Dispose();
+        _random = new(() => new Random(seed));
+    }
 }

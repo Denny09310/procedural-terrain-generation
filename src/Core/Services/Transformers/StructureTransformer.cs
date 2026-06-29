@@ -34,6 +34,7 @@ public sealed class StructureTransformer(
     public void Apply(TerrainWorld world, TerrainGrid grid, TerrainContext ctx)
     {
         var size = ctx.Configuration.ChunkSize;
+        random.SetSeed(Hash(ctx.ChunkX, ctx.ChunkY));
 
         foreach (var rule in _rules)
         {

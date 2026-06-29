@@ -15,9 +15,9 @@ public sealed class TerrainGenerator(
     /// <summary>
     /// Creates a new, empty <see cref="TerrainWorld"/> backed by this generator's pipeline.
     /// </summary>
-    public TerrainWorld CreateWorld() => new(GenerateChunkCoreAsync);
+    public TerrainWorld CreateWorld() => new(GenerateChunkAsync);
 
-    private async ValueTask<TerrainGrid> GenerateChunkCoreAsync(TerrainWorld world, int chunkX, int chunkY)
+    private async ValueTask<TerrainGrid> GenerateChunkAsync(TerrainWorld world, int chunkX, int chunkY)
     {
         var config = provider.GetRequiredService<TerrainConfiguration>();
         var size = config.ChunkSize;
